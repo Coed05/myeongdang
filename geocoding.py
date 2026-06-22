@@ -87,7 +87,28 @@ def geocode(address: str, api_key: str = None, address_type: str = "ROAD"):
     if address_type == "ROAD":
         return geocode(address, key, address_type="PARCEL")
 
+    # 브이월드가 (배포 서버에서) 막히면 키 불필요한 OSM Nominatim 으로 폴백
+    lat, lon = _nominatim(address)
+    if lat is not None:
+        return lat, lon
+
     print(f"[geocode] 좌표를 찾지 못했습니다 (status={status}): {address}")
+    return None, None
+
+
+def _nominatim(address: str):
+    """OpenStreetMap Nominatim 지오코딩 (키 불필요, 서버 어디서든 동작)."""
+    try:
+        resp = requests.get(
+            "https://nominatim.openstreetmap.org/search",
+            params={"q": address, "format": "json", "limit": 1,
+                    "countrycodes": "kr", "accept-language": "ko"},
+            headers={"User-Agent": "ansim-myeongdang/1.0"}, timeout=15)
+        arr = resp.json()
+        if arr:
+            return float(arr[0]["lat"]), float(arr[0]["lon"])
+    except Exception as e:
+        print(f"[nominatim] 실패: {e}")
     return None, None
 
 
