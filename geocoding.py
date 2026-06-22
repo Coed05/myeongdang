@@ -97,6 +97,7 @@ def search_address(query: str, api_key: str = None, size: int = 10) -> list:
         return []
 
     results = []
+    # 1) 브이월드 '검색 API' (권한 있으면 여러 후보 반환)
     for cat in ("road", "parcel"):   # 도로명 먼저, 없으면 지번
         params = {
             "service": "search", "request": "search", "version": "2.0",
@@ -123,4 +124,11 @@ def search_address(query: str, api_key: str = None, size: int = 10) -> list:
                 continue
         if results:
             break
+
+    # 2) 폴백: 검색 API가 막혔거나 결과가 없으면 '지오코더'로 직접 변환
+    #    (지오코더 API만 켜져 있어도 동작하도록)
+    if not results:
+        lat, lon = geocode(query)
+        if lat is not None:
+            results.append({"label": query, "lat": lat, "lon": lon})
     return results
