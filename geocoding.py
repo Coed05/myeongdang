@@ -6,11 +6,17 @@ geocoding.py — 주소 → 위도/경도 변환 (국토교통부 브이월드 A
 사용자가 텍스트 주소를 입력하면 브이월드 지오코딩 API로 GPS 좌표를 얻습니다.
 """
 
+import os
 import re
 import requests
 from config import VWORLD_API_KEY
 
 VWORLD_URL = "https://api.vworld.kr/req/address"
+
+# 브이월드 키에 등록한 도메인. 서버에서 호출할 때 이 Referer를 함께 보내야
+# 도메인 제한을 통과한다. (배포 주소에 맞게 Secrets의 VWORLD_REFERER로 변경 가능)
+VWORLD_REFERER = os.getenv("VWORLD_REFERER", "https://myeongdang.streamlit.app")
+_VWORLD_HEADERS = {"Referer": VWORLD_REFERER}
 
 
 def clean_address(addr: str) -> str:
@@ -60,7 +66,8 @@ def geocode(address: str, api_key: str = None, address_type: str = "ROAD"):
     data = None
     for attempt in range(2):  # 타임아웃 시 1회 재시도
         try:
-            resp = requests.get(VWORLD_URL, params=params, timeout=15)
+            resp = requests.get(VWORLD_URL, params=params,
+                                headers=_VWORLD_HEADERS, timeout=15)
             data = resp.json()
             break
         except (requests.RequestException, ValueError) as e:
@@ -106,7 +113,8 @@ def search_address(query: str, api_key: str = None, size: int = 10) -> list:
             "format": "json", "key": key,
         }
         try:
-            resp = requests.get(VWORLD_SEARCH_URL, params=params, timeout=15)
+            resp = requests.get(VWORLD_SEARCH_URL, params=params,
+                                headers=_VWORLD_HEADERS, timeout=15)
             data = resp.json()
         except (requests.RequestException, ValueError):
             continue
