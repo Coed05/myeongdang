@@ -1,0 +1,16 @@
+# Streamlit 설정 — 깔끔한 한글 UI
+
+[theme]
+primaryColor = "#1a9850"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f6f8f7"
+textColor = "#1f2937"
+font = "sans serif"
+
+[client]
+# 상단 영어 툴바(Deploy 등) 최소화
+toolbarMode = "minimal"
+showErrorDetails = true
+
+[browser]
+gatherUsageStats = false
