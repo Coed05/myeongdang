@@ -35,7 +35,7 @@ function downwind(lat, lon, fromDeg, km = 1.5) {
 }
 function drawMap(rep) {
   if (MAP) { MAP.remove(); MAP = null; }
-  MAP = L.map("map");
+  MAP = L.map("map").setView([rep.aptLat, rep.aptLon], 12);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(MAP);
   const color = GRADE_COLOR[rep.grade] || "#888";
   // 반경 원 — 점선·굵은 테두리로 또렷하게
@@ -51,16 +51,17 @@ function drawMap(rep) {
     L.circleMarker([f.lat, f.lon], { radius: rad, color: col, fillColor: col, fillOpacity: f.core ? 0.85 : 0.5, weight: 1 })
       .bindTooltip(`${f.factory_name} · ${f.industry_name || ""} · ${f.distance_km}km`).addTo(MAP);
   }
-  // 핀+반경이 화면의 ~80%로 보이도록 맞춤(이후 자유롭게 확대·축소·이동 가능)
-  const fit = () => MAP.fitBounds(circle.getBounds().pad(0.12));
-  fit();
-  setTimeout(() => { MAP.invalidateSize(); fit(); }, 200);
+  // 컨테이너 크기가 잡힌 뒤 핀+반경이 화면의 ~80%로 보이도록 맞춤
+  // (이후 자유롭게 확대·축소·이동 가능)
+  const fit = () => { MAP.invalidateSize(); MAP.fitBounds(circle.getBounds().pad(0.12)); };
+  setTimeout(fit, 250);
+  setTimeout(fit, 600);
 }
 
 function renderResult(rep) {
   const color = GRADE_COLOR[rep.grade] || "#888";
   const chips = (rep.complexes || []).map(c => `<span class="chip">${c.name} · ${c.dist}km</span>`).join(" ");
-  const rows = rep.nearby.map(f => `<tr><td>${f.core ? CORE_LABEL[f.core] : "-"}</td><td>${f.factory_name}</td><td>${f.industry_name || ""}</td><td style="text-align:right">${f.distance_km}</td></tr>`).join("");
+  const rows = rep.nearby.map(f => `<tr><td>${f.core ? CORE_LABEL[f.core] : "-"}</td><td>${f.factory_name}</td><td>${f.industry_name || ""}</td><td style="text-align:right">${(+f.distance_km).toFixed(2)} km</td></tr>`).join("");
   const detRows = (rep.detail || []).map(d => `<tr><td>${d.name}</td><td>${d.label}</td><td>${d.r2}</td><td>${d.x}</td><td>${d.y}</td><td>${d.sy}</td><td>${d.sz}</td><td>${d.Q}</td><td>${d.C}</td><td>${d.spl2}</td></tr>`).join("");
 
   document.getElementById("result").innerHTML = `
@@ -80,22 +81,27 @@ function renderResult(rep) {
       <div class="metric"><div class="m-label">누적 소음 ${ic(TIP.noise)}</div><div class="m-val">${rep.noiseDb}<span class="unit">dB</span></div><div class="m-sub">${rep.noiseScore}점</div></div>
       <div class="metric"><div class="m-label">누적 악취 ${ic(TIP.odor)}</div><div class="m-val">${rep.odorOu}<span class="unit">OU</span></div><div class="m-sub">${rep.odorScore}점</div></div>
       <div class="metric"><div class="m-label">핵심 배출원 / 반경내 ${ic(TIP.core)}</div><div class="m-val">${rep.coreCount} / ${rep.nearby.length}</div><div class="m-sub">3대 핵심 업종</div></div>
-      <div class="metric"><div class="m-label">바람 ${ic(TIP.wind)}</div><div class="m-val">${rep.wind.speed}<span class="unit">m/s</span></div><div class="m-sub">${rep.wind.fromDeg}° / ${rep.wind.stab}등급</div></div>
+      <div class="metric"><div class="m-label">바람 ${ic(TIP.wind)}</div><div class="m-val">${rep.wind.speed}<span class="unit">m/s</span></div><div class="m-sub">${rep.wind.fromDeg}° 방향 / ${rep.wind.stab}등급</div></div>
     </div>
     <div class="two-col">
       <div><div id="map"></div></div>
       <div class="result-right">
         <h3>반경 내 공장 ${rep.nearby.length}개</h3>
         <div class="legend"><span style="color:#dc2626">●</span> 화학 <span style="color:#ea580c">●</span> 플라스틱 <span style="color:#2563eb">●</span> 금속 <span style="color:#9ca3af">●</span> 비배출원</div>
-        <div class="table-wrap"><table><thead><tr><th>핵심</th><th>회사명</th><th>업종</th><th>거리(km)</th></tr></thead><tbody>${rows}</tbody></table></div>
+        <div class="table-wrap"><table><thead><tr><th>핵심</th><th>회사명</th><th>업종</th><th style="text-align:right">거리</th></tr></thead><tbody>${rows}</tbody></table></div>
       </div>
     </div>
-    <details class="adv"><summary>세부 계산식 · 변수값</summary>
-      <p class="fixvars muted">고정 변수 — 풍속 u=${rep.wind.speed} m/s · 안정도 ${rep.wind.stab}등급 · 굴뚝높이 H=15 m · 풍향 ${rep.wind.fromDeg}° · 기준거리 r₁=1 m</p>
+    <details class="adv"><summary>📚 분석 방법론 · 세부 계산식</summary>
+      <p class="adv-p"><b>왜 시뮬레이션인가?</b> 공장의 실시간 배출량은 영업비밀이라 공개되지 않아요. 정부 공인 '배출 원단위 가중치'와 '물리적 소음 표준'을 공인 화공 수식에 대입해요.</p>
+      <p class="adv-p"><b>3대 핵심 배출 업종</b> — 화학(C20) Q=100·85dB / 고무·플라스틱(C22) 60·80dB / 금속가공(C25) 15·95dB</p>
       <div class="fxhead"><b>악취 — 2차원 가우스 확산</b> <span class="muted small">· 수식에 마우스를 올리면 설명이 떠요</span></div>
       <div class="fx" data-tip="${FX.odor}">$$C=\\dfrac{Q}{\\pi\\,u\\,\\sigma_y\\,\\sigma_z}\\,\\exp\\!\\left(-\\dfrac{y^2}{2\\sigma_y^2}\\right)\\exp\\!\\left(-\\dfrac{H^2}{2\\sigma_z^2}\\right),\\quad \\sigma_y=a\\,x^{b},\\ \\sigma_z=c\\,x^{d}$$</div>
       <div class="fxhead"><b>소음 — 거리 역자승 감쇄 + 로그 합산</b></div>
       <div class="fx" data-tip="${FX.noise}">$$SPL_2=SPL_1-20\\log_{10}(r_2),\\qquad SPL_{total}=10\\log_{10}\\!\\sum_i 10^{\\,SPL_i/10}$$</div>
+      <p class="adv-p muted small">근거: 악취방지법, 산업안전보건기준 규칙 제512조, Pasquill(1961), Martin(1976).</p>
+      <hr class="adv-sep" />
+      <div class="fxhead"><b>이 주소의 세부 변수값</b></div>
+      <p class="fixvars muted">고정 변수 — 풍속 u=${rep.wind.speed} m/s · 안정도 ${rep.wind.stab}등급 · 굴뚝높이 H=15 m · 풍향 ${rep.wind.fromDeg}° · 기준거리 r₁=1 m</p>
       <div class="table-wrap"><table class="small-tbl"><thead><tr><th>회사명</th><th>업종</th><th>r₂(km)</th><th>x(km)</th><th>y(m)</th><th>σy</th><th>σz</th><th>Q</th><th>C(OU)</th><th>SPL₂</th></tr></thead><tbody>${detRows || '<tr><td colspan="10">핵심 배출원 없음</td></tr>'}</tbody></table></div>
     </details>
     <p class="note">본 등급은 정부 공인 배출 원단위·소음 표준과 지역 기상통계를 화공 수식에 적용한 추정치예요. 실제 환경은 그날의 기상·공장 운영 상황에 따라 달라질 수 있어요.</p>
@@ -111,12 +117,16 @@ function renderResult(rep) {
 }
 
 function renderMath(el) {
-  if (window.renderMathInElement && el) {
+  if (!el) return;
+  if (window.renderMathInElement) {
     renderMathInElement(el, {
       delimiters: [{ left: "$$", right: "$$", display: true },
                    { left: "$", right: "$", display: false }],
       throwOnError: false,
     });
+  } else {
+    // KaTeX가 아직 로딩 중이면(빠른 분석 시) 잠시 뒤 재시도
+    setTimeout(() => renderMath(el), 200);
   }
 }
 
@@ -218,6 +228,4 @@ window.addEventListener("DOMContentLoaded", () => {
   document.addEventListener("click", e => {
     if (!e.target.closest(".search-box")) hideSuggest();
   });
-  // 방법론 섹션의 수식도 렌더(KaTeX 로드 후)
-  setTimeout(() => renderMath(document.querySelector(".methodology")), 300);
 });

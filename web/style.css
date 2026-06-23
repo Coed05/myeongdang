@@ -154,6 +154,9 @@ details summary:hover { color: var(--accent-dark); }
 .result-right { display: flex; flex-direction: column; height: 460px; }
 .result-right .table-wrap { flex: 1; max-height: none; min-height: 0; }
 
+/* 방법론 + 세부 계산식 합본 */
+.adv .adv-p { font-size: 13px; line-height: 1.62; margin: 8px 0; color: var(--text); }
+.adv .adv-sep { border: none; border-top: 1px solid var(--line); margin: 16px 0 12px; }
 /* 세부 계산식 — 글자·수식 작게 + 수식 호버 설명 */
 .adv .fixvars { font-size: 12px; margin: 4px 0 10px; }
 .adv .fxhead { font-size: 13px; font-weight: 600; color: var(--text); margin: 12px 0 2px; }
