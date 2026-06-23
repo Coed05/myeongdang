@@ -20,6 +20,10 @@ const TIP = {
   grade: "AAA(최상)부터 F(매우 나쁨)까지 8단계. 소음·악취 점수를 가중 합산해 매겨요.",
 };
 const ic = (t) => `<span class="info" data-tip="${t}">i</span>`;
+const FX = {
+  odor: "굴뚝에서 나온 악취가 바람을 타고 퍼질 때의 농도 C예요. 풍하거리 x가 멀수록, 바람 축에서 옆으로(y) 벗어날수록 농도가 급격히 낮아져요. σy·σz는 대기 안정도에 따른 좌우·상하 확산 폭(Martin 계수)이에요.",
+  noise: "1m 거리의 소음(SPL₁)이 거리 r₂만큼 멀어지며 줄어드는 양을 구하고(역자승 감쇄), 여러 공장의 소음을 에너지 기준으로 로그 합산해 총 소음을 계산해요.",
+};
 const CORE_COLOR = { C20:"#dc2626", C22:"#ea580c", C25:"#2563eb" };
 const CORE_LABEL = { C20:"화학·석유화학", C22:"고무·플라스틱", C25:"금속가공·기계" };
 const DEG = Math.PI / 180;
@@ -31,11 +35,11 @@ function downwind(lat, lon, fromDeg, km = 1.5) {
 }
 function drawMap(rep) {
   if (MAP) { MAP.remove(); MAP = null; }
-  MAP = L.map("map").setView([rep.aptLat, rep.aptLon], 13);
+  MAP = L.map("map");
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(MAP);
   const color = GRADE_COLOR[rep.grade] || "#888";
-  // 5km 반경 원 — 점선·굵은 테두리로 또렷하게
-  L.circle([rep.aptLat, rep.aptLon], { radius: rep.radiusKm * 1000, color: "#1d4ed8",
+  // 반경 원 — 점선·굵은 테두리로 또렷하게
+  const circle = L.circle([rep.aptLat, rep.aptLon], { radius: rep.radiusKm * 1000, color: "#1d4ed8",
     weight: 3, opacity: 0.9, dashArray: "10 8", fillColor: "#3b82f6", fillOpacity: 0.07 }).addTo(MAP);
   L.circleMarker([rep.aptLat, rep.aptLon], { radius: 7, color: "#1d4ed8", weight: 2,
     fillColor: "#fff", fillOpacity: 1 }).addTo(MAP);
@@ -47,7 +51,10 @@ function drawMap(rep) {
     L.circleMarker([f.lat, f.lon], { radius: rad, color: col, fillColor: col, fillOpacity: f.core ? 0.85 : 0.5, weight: 1 })
       .bindTooltip(`${f.factory_name} · ${f.industry_name || ""} · ${f.distance_km}km`).addTo(MAP);
   }
-  setTimeout(() => { MAP.invalidateSize(); MAP.setView([rep.aptLat, rep.aptLon], 13); }, 200);
+  // 핀+반경이 화면의 ~80%로 보이도록 맞춤(이후 자유롭게 확대·축소·이동 가능)
+  const fit = () => MAP.fitBounds(circle.getBounds().pad(0.12));
+  fit();
+  setTimeout(() => { MAP.invalidateSize(); fit(); }, 200);
 }
 
 function renderResult(rep) {
@@ -77,18 +84,18 @@ function renderResult(rep) {
     </div>
     <div class="two-col">
       <div><div id="map"></div></div>
-      <div>
+      <div class="result-right">
         <h3>반경 내 공장 ${rep.nearby.length}개</h3>
         <div class="legend"><span style="color:#dc2626">●</span> 화학 <span style="color:#ea580c">●</span> 플라스틱 <span style="color:#2563eb">●</span> 금속 <span style="color:#9ca3af">●</span> 비배출원</div>
         <div class="table-wrap"><table><thead><tr><th>핵심</th><th>회사명</th><th>업종</th><th>거리(km)</th></tr></thead><tbody>${rows}</tbody></table></div>
       </div>
     </div>
     <details class="adv"><summary>세부 계산식 · 변수값</summary>
-      <p class="muted">고정 변수 — 풍속 u=${rep.wind.speed} m/s · 안정도 ${rep.wind.stab}등급 · 굴뚝높이 H=15 m · 풍향 ${rep.wind.fromDeg}° · 기준거리 r₁=1 m</p>
-      <p><b>악취 (2차원 가우스 확산)</b></p>
-      <p>$$C=\\dfrac{Q}{\\pi\\,u\\,\\sigma_y\\,\\sigma_z}\\,\\exp\\!\\left(-\\dfrac{y^2}{2\\sigma_y^2}\\right)\\exp\\!\\left(-\\dfrac{H^2}{2\\sigma_z^2}\\right),\\quad \\sigma_y=a\\,x^{b},\\ \\sigma_z=c\\,x^{d}$$</p>
-      <p><b>소음 (거리 역자승 감쇄 + 로그 합산)</b></p>
-      <p>$$SPL_2=SPL_1-20\\log_{10}(r_2),\\qquad SPL_{total}=10\\log_{10}\\!\\sum_i 10^{\\,SPL_i/10}$$</p>
+      <p class="fixvars muted">고정 변수 — 풍속 u=${rep.wind.speed} m/s · 안정도 ${rep.wind.stab}등급 · 굴뚝높이 H=15 m · 풍향 ${rep.wind.fromDeg}° · 기준거리 r₁=1 m</p>
+      <div class="fxhead"><b>악취 — 2차원 가우스 확산</b> <span class="muted small">· 수식에 마우스를 올리면 설명이 떠요</span></div>
+      <div class="fx" data-tip="${FX.odor}">$$C=\\dfrac{Q}{\\pi\\,u\\,\\sigma_y\\,\\sigma_z}\\,\\exp\\!\\left(-\\dfrac{y^2}{2\\sigma_y^2}\\right)\\exp\\!\\left(-\\dfrac{H^2}{2\\sigma_z^2}\\right),\\quad \\sigma_y=a\\,x^{b},\\ \\sigma_z=c\\,x^{d}$$</div>
+      <div class="fxhead"><b>소음 — 거리 역자승 감쇄 + 로그 합산</b></div>
+      <div class="fx" data-tip="${FX.noise}">$$SPL_2=SPL_1-20\\log_{10}(r_2),\\qquad SPL_{total}=10\\log_{10}\\!\\sum_i 10^{\\,SPL_i/10}$$</div>
       <div class="table-wrap"><table class="small-tbl"><thead><tr><th>회사명</th><th>업종</th><th>r₂(km)</th><th>x(km)</th><th>y(m)</th><th>σy</th><th>σz</th><th>Q</th><th>C(OU)</th><th>SPL₂</th></tr></thead><tbody>${detRows || '<tr><td colspan="10">핵심 배출원 없음</td></tr>'}</tbody></table></div>
     </details>
     <p class="note">본 등급은 정부 공인 배출 원단위·소음 표준과 지역 기상통계를 화공 수식에 적용한 추정치예요. 실제 환경은 그날의 기상·공장 운영 상황에 따라 달라질 수 있어요.</p>
@@ -113,28 +120,45 @@ function renderMath(el) {
   }
 }
 
-let CANDIDATES = [], PICKED = null;
+let CANDIDATES = [], PICKED = null, _searchTimer = null;
 
-async function search() {
+function hideSuggest() {
+  const s = document.getElementById("suggest");
+  s.style.display = "none"; s.innerHTML = "";
+}
+
+function renderSuggest() {
+  const s = document.getElementById("suggest");
+  if (!CANDIDATES.length) {
+    s.innerHTML = `<div class="suggest-empty">검색 결과가 없어요. 더 구체적으로 입력해 보세요.</div>`;
+    s.style.display = "block"; return;
+  }
+  s.innerHTML = CANDIDATES.map((c, i) => `<div class="suggest-item" data-i="${i}">${c.label}</div>`).join("");
+  s.style.display = "block";
+  s.querySelectorAll(".suggest-item").forEach(el => {
+    el.addEventListener("click", () => {
+      PICKED = CANDIDATES[+el.dataset.i];
+      document.getElementById("addr").value = PICKED.label;
+      hideSuggest();
+    });
+  });
+}
+
+// 입력하면 자동으로 후보를 띄움(타이핑이 멈춘 뒤 호출, 과도한 호출 방지)
+async function liveSearch() {
   const q = document.getElementById("addr").value.trim();
-  if (!q) return;
-  const status = document.getElementById("search-status");
-  const sel = document.getElementById("candidates");
-  status.innerHTML = `<span class="spin"></span>검색 중…`;
-  PICKED = null; sel.style.display = "none";
+  if (q.length < 2) { hideSuggest(); return; }
   try {
     const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-    CANDIDATES = await r.json();
+    CANDIDATES = (await r.json()) || [];
   } catch (e) { CANDIDATES = []; }
-  if (!CANDIDATES.length) {
-    status.textContent = "검색 결과가 없습니다. 더 구체적으로 입력해 보세요.";
-    return;
-  }
-  status.textContent = "";
-  sel.innerHTML = CANDIDATES.map((c, i) => `<option value="${i}">${c.label}</option>`).join("");
-  sel.style.display = "block";
-  PICKED = CANDIDATES[0];
-  sel.onchange = () => { PICKED = CANDIDATES[+sel.value]; };
+  renderSuggest();
+}
+
+function onAddrInput() {
+  PICKED = null;
+  clearTimeout(_searchTimer);
+  _searchTimer = setTimeout(liveSearch, 350);
 }
 
 async function analyze() {
@@ -180,15 +204,21 @@ window.addEventListener("DOMContentLoaded", () => {
   });
   document.getElementById("complex_km").addEventListener("input", e => document.getElementById("ckm-val").textContent = e.target.value);
   document.getElementById("max_rows").addEventListener("input", e => document.getElementById("mr-val").textContent = e.target.value);
-  document.getElementById("btn-search").addEventListener("click", search);
   document.getElementById("btn-analyze").addEventListener("click", analyze);
   // 사이드바 접기/펼치기
   document.getElementById("sb-toggle").addEventListener("click", () => {
     document.body.classList.toggle("sb-collapsed");
   });
-  // 주소창에서 Enter → 주소 검색
-  document.getElementById("addr").addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); search(); }
+  // 주소 입력 시 자동완성 후보 표시
+  const addrEl = document.getElementById("addr");
+  addrEl.addEventListener("input", onAddrInput);
+  addrEl.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); hideSuggest(); analyze(); }
+    else if (e.key === "Escape") { hideSuggest(); }
+  });
+  // 바깥 클릭 시 후보 닫기
+  document.addEventListener("click", e => {
+    if (!e.target.closest(".search-box")) hideSuggest();
   });
   // 방법론 섹션의 수식도 렌더(KaTeX 로드 후)
   setTimeout(() => renderMath(document.querySelector(".methodology")), 300);

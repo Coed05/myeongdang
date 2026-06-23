@@ -24,7 +24,7 @@
     <hr />
     <h4>사용 방법</h4>
     <ol class="small steps">
-      <li>아파트 <b>주소 입력</b></li>
+      <li><b>주소 입력</b> 후 후보 선택</li>
       <li>반경·주야·가중치 조정(선택)</li>
       <li><b>안심 등급 분석</b> 클릭</li>
       <li>지도에서 주변 공장·바람 확인</li>
@@ -40,6 +40,7 @@
   </aside>
 
   <main class="main">
+   <div class="main-inner">
     <button id="sb-toggle" class="sb-toggle" aria-label="사이드바 접기/펼치기" title="사이드바 접기/펼치기">
       <span></span><span></span><span></span>
     </button>
@@ -49,13 +50,11 @@
     </div>
 
     <section class="card search-card">
-      <label class="field-label">분석할 아파트 주소</label>
-      <div class="search-row">
-        <input id="addr" type="text" placeholder="예: 울산 남구 야음동, 안산 반월동" value="울산 남구 야음동" />
-        <button id="btn-search" class="btn">검색</button>
+      <label class="field-label">분석할 주소</label>
+      <div class="search-box">
+        <input id="addr" type="text" autocomplete="off" placeholder="주소를 입력하면 아래에 후보가 떠요 (예: 울산 남구 야음동)" value="울산 남구 야음동" />
+        <div id="suggest" class="suggest" style="display:none"></div>
       </div>
-      <div id="search-status" class="status"></div>
-      <select id="candidates" style="display:none"></select>
       <div class="opts">
         <div class="opt">
           <label>탐색 반경 (km) · <span id="radius-val">5.0</span> <span class="info" data-tip="이 거리(km) 안에 있는 공장만 소음·악취 계산에 포함해요. 보통 5km를 권장해요.">i</span></label>
@@ -98,7 +97,7 @@
       <div class="empty-state">
         <div class="empty-ic">🏠</div>
         <div class="empty-title">우리 동네 안심 등급을 확인해보세요</div>
-        <div class="empty-sub">위에 아파트 주소를 입력하고 <b>분석하기</b>를 누르면<br>주변 공장의 소음·악취 영향을 한눈에 알려드려요.</div>
+        <div class="empty-sub">위에 주소를 입력하고 <b>분석하기</b>를 누르면<br>주변 공장의 소음·악취 영향을 한눈에 알려드려요.</div>
       </div>
     </div>
 
@@ -141,6 +140,7 @@
       </div>
       <p class="muted small">본 서비스는 공공데이터와 정부 공인 상수를 화공 수식에 적용한 <b>시뮬레이션 추정치</b>입니다. 실시간 실측값이 아니며, 실제 환경은 그날의 기상·공장 운영 상황에 따라 달라질 수 있습니다. © 우리 동네 안심 명당</p>
     </footer>
+   </div>
   </main>
 
   <script src="app.js"></script>

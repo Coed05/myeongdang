@@ -47,7 +47,8 @@ body.sb-collapsed .sidebar { margin-left: -265px; }
 .sb-grade { font-size: 26px; font-weight: 700; color: var(--c); vertical-align: middle; }
 
 /* ── 본문 ───────────────────────────────── */
-.main { flex: 1; max-width: 1120px; padding: 32px 36px 56px; }
+.main { flex: 1; min-width: 0; padding: 32px 36px 56px; }
+.main-inner { max-width: 980px; margin: 0 auto; }
 .header { margin-bottom: 22px; }
 .h-title { font-size: 27px; font-weight: 700; letter-spacing: -0.03em; color: var(--ink); }
 .h-sub { color: var(--muted); font-size: 14.5px; margin-top: 6px; line-height: 1.5; }
@@ -71,9 +72,16 @@ details summary:hover { color: var(--accent-dark); }
 
 /* 입력 영역 */
 .field-label { display: block; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 11px; }
-.search-row { display: flex; gap: 10px; }
-#addr { flex: 1; padding: 12px 15px; border: 1px solid var(--line2); border-radius: var(--r-sm);
+.search-box { position: relative; }
+#addr { width: 100%; padding: 13px 15px; border: 1px solid var(--line2); border-radius: var(--r-sm);
   font-size: 15px; font-family: inherit; color: var(--ink); transition: border-color .15s, box-shadow .15s; }
+.suggest { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface);
+  border: 1px solid var(--line2); border-radius: var(--r-sm); box-shadow: 0 12px 32px rgba(15,23,42,.13);
+  z-index: 50; overflow: hidden; max-height: 300px; overflow-y: auto; }
+.suggest-item { padding: 11px 15px; font-size: 14px; color: var(--text); cursor: pointer; line-height: 1.4; }
+.suggest-item + .suggest-item { border-top: 1px solid var(--line); }
+.suggest-item:hover, .suggest-item.active { background: var(--accent-tint); color: var(--accent-dark); }
+.suggest-empty { padding: 12px 15px; font-size: 13px; color: var(--muted); }
 #addr:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(22,163,74,.14); }
 #addr::placeholder { color: var(--faint); }
 .btn { padding: 12px 18px; border: 1px solid var(--line2); border-radius: var(--r-sm); background: var(--surface);
@@ -136,11 +144,27 @@ details summary:hover { color: var(--accent-dark); }
 .metric:last-child .info::before { left: auto; right: 4px; transform: none; }
 
 /* ── 지도·표 ───────────────────────────── */
-.two-col { display: grid; grid-template-columns: 3fr 2fr; gap: 18px; margin-top: 10px; }
+.two-col { display: grid; grid-template-columns: 3fr 2fr; gap: 18px; margin-top: 10px; align-items: start; }
 .two-col h3 { font-size: 15px; font-weight: 700; margin: 0 0 8px; }
 #map { height: 460px; border-radius: var(--r-md); border: 1px solid var(--line); }
-.legend { font-size: 12px; color: var(--text); margin: 8px 0; }
+.legend { font-size: 12px; color: var(--text); margin: 0 0 8px; }
 .table-wrap { max-height: 460px; overflow: auto; border: 1px solid var(--line); border-radius: var(--r-md); }
+/* 표 높이를 지도 높이(460px)에 맞춤 */
+.result-right { display: flex; flex-direction: column; height: 460px; }
+.result-right .table-wrap { flex: 1; max-height: none; min-height: 0; }
+
+/* 세부 계산식 — 글자·수식 작게 + 수식 호버 설명 */
+.adv .fixvars { font-size: 12px; margin: 4px 0 10px; }
+.adv .fxhead { font-size: 13px; font-weight: 600; color: var(--text); margin: 12px 0 2px; }
+.fx { position: relative; cursor: help; border-radius: var(--r-sm); padding: 2px 8px; transition: background .15s; }
+.fx:hover { background: var(--accent-tint); }
+.fx .katex-display { font-size: 0.8em; margin: 6px 0; overflow-x: auto; overflow-y: hidden; }
+.fx::after { content: attr(data-tip); position: absolute; left: 8px; top: calc(100% - 2px);
+  width: max-content; max-width: 440px; white-space: normal; background: var(--ink); color: #fff;
+  padding: 10px 12px; border-radius: var(--r-sm); font-size: 12px; font-weight: 500; line-height: 1.55;
+  text-align: left; box-shadow: 0 10px 28px rgba(15,23,42,.2); opacity: 0; visibility: hidden;
+  transition: opacity .15s; z-index: 60; pointer-events: none; }
+.fx:hover::after { opacity: 1; visibility: visible; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 9px 11px; border-bottom: 1px solid var(--line); text-align: left; }
 th { background: var(--section); position: sticky; top: 0; font-weight: 600; color: var(--text); }
