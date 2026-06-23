@@ -73,7 +73,8 @@ details summary:hover { color: var(--accent-dark); }
 /* 입력 영역 */
 .field-label { display: block; font-size: 14px; font-weight: 700; color: var(--ink); margin-bottom: 11px; }
 .search-box { position: relative; }
-#addr { width: 100%; padding: 13px 15px; border: 1px solid var(--line2); border-radius: var(--r-sm);
+.search-row { display: flex; gap: 10px; }
+#addr { flex: 1; padding: 13px 15px; border: 1px solid var(--line2); border-radius: var(--r-sm);
   font-size: 15px; font-family: inherit; color: var(--ink); transition: border-color .15s, box-shadow .15s; }
 .suggest { position: absolute; top: calc(100% + 6px); left: 0; right: 0; background: var(--surface);
   border: 1px solid var(--line2); border-radius: var(--r-sm); box-shadow: 0 12px 32px rgba(15,23,42,.13);

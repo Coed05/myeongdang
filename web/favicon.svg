@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="우리 동네 안심 명당">
+  <rect width="64" height="64" rx="15" fill="#16a34a"/>
+  <path d="M12 32 L32 15 L52 32 L47.5 32 L47.5 49 L16.5 49 L16.5 32 Z" fill="#ffffff"/>
+  <path d="M24 38.5 L29.5 44 L41 32" fill="none" stroke="#16a34a" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

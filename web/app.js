@@ -144,21 +144,19 @@ function renderSuggest() {
   });
 }
 
-// 입력하면 자동으로 후보를 띄움(타이핑이 멈춘 뒤 호출, 과도한 호출 방지)
-async function liveSearch() {
+// 검색 버튼/Enter로 후보 조회
+async function search() {
   const q = document.getElementById("addr").value.trim();
-  if (q.length < 2) { hideSuggest(); return; }
+  const status = document.getElementById("search-status");
+  if (!q) return;
+  status.innerHTML = `<span class="spin"></span>검색 중…`;
+  PICKED = null;
   try {
     const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
     CANDIDATES = (await r.json()) || [];
   } catch (e) { CANDIDATES = []; }
+  status.textContent = "";
   renderSuggest();
-}
-
-function onAddrInput() {
-  PICKED = null;
-  clearTimeout(_searchTimer);
-  _searchTimer = setTimeout(liveSearch, 350);
 }
 
 async function analyze() {
@@ -205,15 +203,15 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("complex_km").addEventListener("input", e => document.getElementById("ckm-val").textContent = e.target.value);
   document.getElementById("max_rows").addEventListener("input", e => document.getElementById("mr-val").textContent = e.target.value);
   document.getElementById("btn-analyze").addEventListener("click", analyze);
+  document.getElementById("btn-search").addEventListener("click", search);
   // 사이드바 접기/펼치기
   document.getElementById("sb-toggle").addEventListener("click", () => {
     document.body.classList.toggle("sb-collapsed");
   });
-  // 주소 입력 시 자동완성 후보 표시
+  // 주소창에서 Enter → 검색
   const addrEl = document.getElementById("addr");
-  addrEl.addEventListener("input", onAddrInput);
   addrEl.addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); hideSuggest(); analyze(); }
+    if (e.key === "Enter") { e.preventDefault(); search(); }
     else if (e.key === "Escape") { hideSuggest(); }
   });
   // 바깥 클릭 시 후보 닫기

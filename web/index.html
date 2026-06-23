@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>우리 동네 안심 명당</title>
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <meta name="theme-color" content="#16a34a" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -52,9 +54,13 @@
     <section class="card search-card">
       <label class="field-label">분석할 주소</label>
       <div class="search-box">
-        <input id="addr" type="text" autocomplete="off" placeholder="주소를 입력하면 아래에 후보가 떠요 (예: 울산 남구 야음동)" value="울산 남구 야음동" />
+        <div class="search-row">
+          <input id="addr" type="text" autocomplete="off" placeholder="예: 울산 남구 야음동, 안산 반월동" value="울산 남구 야음동" />
+          <button id="btn-search" class="btn">검색</button>
+        </div>
         <div id="suggest" class="suggest" style="display:none"></div>
       </div>
+      <div id="search-status" class="status"></div>
       <div class="opts">
         <div class="opt">
           <label>탐색 반경 (km) · <span id="radius-val">5.0</span> <span class="info" data-tip="이 거리(km) 안에 있는 공장만 소음·악취 계산에 포함해요. 보통 5km를 권장해요.">i</span></label>
@@ -80,11 +86,11 @@
         </div>
       </div>
       <details class="adv">
-        <summary>고급 설정</summary>
+        <summary>⚙️ 고급 설정</summary>
         <div class="opts">
-          <div class="opt"><label>산업단지 자동탐지 반경 (km) · <span id="ckm-val">15</span></label>
+          <div class="opt"><label>산업단지 자동탐지 반경 (km) · <span id="ckm-val">15</span> <span class="info" data-tip="입력한 주소에서 이 거리(km) 안에 있는 산업단지를 자동으로 찾아, 그 단지의 공장을 수집해요. 넓힐수록 더 먼 단지까지 포함해요.">i</span></label>
             <input id="complex_km" type="range" min="5" max="30" step="1" value="15" /></div>
-          <div class="opt"><label>단지별 공장 수집 상한 · <span id="mr-val">600</span></label>
+          <div class="opt"><label>단지별 공장 수집 상한 · <span id="mr-val">600</span> <span class="info" data-tip="한 산업단지에서 가져올 공장 수의 최대치예요. 크게 하면 더 많은 공장을 보지만 분석이 느려질 수 있어요.">i</span></label>
             <input id="max_rows" type="range" min="100" max="2000" step="100" value="600" /></div>
           <div class="opt"><label class="chk"><input id="live" type="checkbox" /> 기상청 실시간 바람 사용 <span class="info" data-tip="체크 시 기상청 초단기실황으로 풍향·풍속을 적용해요(실패 시 표준값).">i</span></label></div>
         </div>
@@ -102,13 +108,13 @@
     </div>
 
     <details class="methodology">
-      <summary>분석 방법론 · 과학적 근거</summary>
+      <summary>📚 분석 방법론 · 과학적 근거</summary>
       <div class="m-body">
         <p><b>왜 시뮬레이션인가?</b> 공장의 실시간 배출량은 영업비밀이라 공개되지 않아요. 정부 공인 '배출 원단위 가중치'와 '물리적 소음 표준'을 공인 화공 수식에 대입해요.</p>
         <p><b>3대 핵심 배출 업종</b> — 화학(C20) Q=100·85dB / 고무·플라스틱(C22) 60·80dB / 금속가공(C25) 15·95dB</p>
-        <p><b>악취</b> — 2차원 가우스 확산 $C = \dfrac{Q}{\pi\,u\,\sigma_y\,\sigma_z}\exp\!\left(-\dfrac{y^2}{2\sigma_y^2}\right)\exp\!\left(-\dfrac{H^2}{2\sigma_z^2}\right)$, &nbsp; $\sigma_y=a\,x^{b},\ \sigma_z=c\,x^{d}$ (Martin, 낮 C / 밤 E)</p>
-        <p><b>소음</b> — 거리 역자승 감쇄 $SPL_2=SPL_1-20\log_{10}(r_2)$ + 로그 합산</p>
-        <p class="muted">근거: 악취방지법, 산업안전보건기준 규칙 §512, Pasquill(1961), Martin(1976).</p>
+        <p><b>악취</b> — 2차원 가우스 확산 $C = \dfrac{Q}{\pi\,u\,\sigma_y\,\sigma_z}\exp\!\left(-\dfrac{y^2}{2\sigma_y^2}\right)\exp\!\left(-\dfrac{H^2}{2\sigma_z^2}\right)$, &nbsp; $\sigma_y=a\,x^{b},\ \sigma_z=c\,x^{d}$ (Martin, 낮 C / 밤 E) <span class="info" data-tip="굴뚝에서 나온 악취가 바람을 타고 퍼질 때의 농도 C예요. 풍하거리가 멀수록·바람 축에서 옆으로(y) 벗어날수록 농도가 급감하고, σy·σz는 대기 안정도별 좌우·상하 확산 폭이에요.">i</span></p>
+        <p><b>소음</b> — 거리 역자승 감쇄 $SPL_2=SPL_1-20\log_{10}(r_2)$ + 로그 합산 <span class="info" data-tip="1m 거리의 소음(SPL₁)이 거리 r₂만큼 멀어지며 줄어드는 양을 구하고, 여러 공장의 소음을 에너지 기준으로 로그 합산해 총 소음을 계산해요.">i</span></p>
+        <p class="muted">근거: 악취방지법, 산업안전보건기준 규칙 제512조, Pasquill(1961), Martin(1976).</p>
       </div>
     </details>
 
