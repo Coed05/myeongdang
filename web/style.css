@@ -93,7 +93,6 @@ details summary:hover { color: var(--accent-dark); }
 .btn-primary:hover { background: var(--accent-dark); }
 .btn-primary:active { transform: translateY(1px); }
 .status { color: #b45309; font-size: 13px; margin: 10px 0 0; }
-#candidates { width: 100%; margin: 10px 0 0; padding: 11px 13px; border-radius: var(--r-sm); border: 1px solid var(--line2); font-family: inherit; font-size: 14px; color: var(--ink); }
 
 .opts { display: flex; gap: 26px; flex-wrap: wrap; margin-top: 20px; }
 .opt { flex: 1; min-width: 180px; }
@@ -173,6 +172,16 @@ table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 9px 11px; border-bottom: 1px solid var(--line); text-align: left; }
 th { background: var(--section); position: sticky; top: 0; font-weight: 600; color: var(--text); }
 .small-tbl th, .small-tbl td { padding: 7px 9px; font-size: 12px; }
+
+/* 반경 내 공장 표 — 회사명 좁히고 거리 넓혀 한 줄 유지 */
+.result-right table { table-layout: fixed; }
+.result-right th:nth-child(1), .result-right td:nth-child(1) { width: 54px; }
+.result-right th:nth-child(4), .result-right td:nth-child(4) { width: 70px; white-space: nowrap; }
+
+/* 세부 변수값 표 — 회사명·업종 좁히고 숫자 칸 넓게 */
+.small-tbl { table-layout: fixed; }
+.small-tbl th:nth-child(1), .small-tbl td:nth-child(1) { width: 128px; }
+.small-tbl th:nth-child(2), .small-tbl td:nth-child(2) { width: 92px; }
 
 .note { background: var(--accent-tint); border: 1px solid var(--accent-bd); border-radius: var(--r-md); padding: 13px 15px; font-size: 13px; color: var(--accent-dark); margin-top: 16px; line-height: 1.55; }
 

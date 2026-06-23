@@ -27,13 +27,16 @@ const FX = {
 const CORE_COLOR = { C20:"#dc2626", C22:"#ea580c", C25:"#2563eb" };
 const CORE_LABEL = { C20:"화학·석유화학", C22:"고무·플라스틱", C25:"금속가공·기계" };
 const DEG = Math.PI / 180;
+const COMPASS16 = ["북","북북동","북동","동북동","동","동남동","남동","남남동","남","남남서","남서","서남서","서","서북서","북서","북북서"];
+function windDir(deg) { return COMPASS16[Math.round((((+deg % 360) + 360) % 360) / 22.5) % 16]; }
 
-let MAP = null;
+let MAP = null, MAP_TIMERS = [];
 function downwind(lat, lon, fromDeg, km = 1.5) {
   const g = ((fromDeg + 180) % 360) * DEG;
   return [lat + (km / 110.54) * Math.cos(g), lon + (km / (111.32 * Math.cos(lat * DEG))) * Math.sin(g)];
 }
 function drawMap(rep) {
+  MAP_TIMERS.forEach(clearTimeout); MAP_TIMERS = [];   // 이전 분석의 지연 타이머 정리
   if (MAP) { MAP.remove(); MAP = null; }
   MAP = L.map("map").setView([rep.aptLat, rep.aptLon], 12);
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap" }).addTo(MAP);
@@ -51,16 +54,16 @@ function drawMap(rep) {
     L.circleMarker([f.lat, f.lon], { radius: rad, color: col, fillColor: col, fillOpacity: f.core ? 0.85 : 0.5, weight: 1 })
       .bindTooltip(`${f.factory_name} · ${f.industry_name || ""} · ${f.distance_km}km`).addTo(MAP);
   }
-  // 컨테이너 크기가 잡힌 뒤 핀+반경이 화면의 ~80%로 보이도록 맞춤
-  // (이후 자유롭게 확대·축소·이동 가능)
-  const fit = () => { MAP.invalidateSize(); MAP.fitBounds(circle.getBounds().pad(0.12)); };
-  setTimeout(fit, 250);
-  setTimeout(fit, 600);
+  // 핀+반경이 화면의 ~80%로 보이도록 맞춤(중심·반경으로 직접 범위 계산 — 투영 의존 X)
+  // 박스 한 변 = 반경×2.5 → 지름(반경×2)이 약 80% 차지. 이후 확대·축소·이동 자유.
+  const bounds = L.latLng(rep.aptLat, rep.aptLon).toBounds(rep.radiusKm * 2500);
+  const fit = () => { if (!MAP) return; MAP.invalidateSize(); MAP.fitBounds(bounds); };
+  MAP_TIMERS.push(setTimeout(fit, 250), setTimeout(fit, 600));
 }
 
 function renderResult(rep) {
   const color = GRADE_COLOR[rep.grade] || "#888";
-  const chips = (rep.complexes || []).map(c => `<span class="chip">${c.name} · ${c.dist}km</span>`).join(" ");
+  const chips = (rep.complexes || []).map(c => `<span class="chip">${c.name} · ${c.dist} km</span>`).join(" ");
   const rows = rep.nearby.map(f => `<tr><td>${f.core ? CORE_LABEL[f.core] : "-"}</td><td>${f.factory_name}</td><td>${f.industry_name || ""}</td><td style="text-align:right">${(+f.distance_km).toFixed(2)} km</td></tr>`).join("");
   const detRows = (rep.detail || []).map(d => `<tr><td>${d.name}</td><td>${d.label}</td><td>${d.r2}</td><td>${d.x}</td><td>${d.y}</td><td>${d.sy}</td><td>${d.sz}</td><td>${d.Q}</td><td>${d.C}</td><td>${d.spl2}</td></tr>`).join("");
 
@@ -81,7 +84,7 @@ function renderResult(rep) {
       <div class="metric"><div class="m-label">누적 소음 ${ic(TIP.noise)}</div><div class="m-val">${rep.noiseDb}<span class="unit">dB</span></div><div class="m-sub">${rep.noiseScore}점</div></div>
       <div class="metric"><div class="m-label">누적 악취 ${ic(TIP.odor)}</div><div class="m-val">${rep.odorOu}<span class="unit">OU</span></div><div class="m-sub">${rep.odorScore}점</div></div>
       <div class="metric"><div class="m-label">핵심 배출원 / 반경내 ${ic(TIP.core)}</div><div class="m-val">${rep.coreCount} / ${rep.nearby.length}</div><div class="m-sub">3대 핵심 업종</div></div>
-      <div class="metric"><div class="m-label">바람 ${ic(TIP.wind)}</div><div class="m-val">${rep.wind.speed}<span class="unit">m/s</span></div><div class="m-sub">${rep.wind.fromDeg}° 방향 / ${rep.wind.stab}등급</div></div>
+      <div class="metric"><div class="m-label">바람 ${ic(TIP.wind)}</div><div class="m-val">${rep.wind.speed}<span class="unit">m/s</span></div><div class="m-sub">${windDir(rep.wind.fromDeg)} ${rep.wind.fromDeg}° / ${rep.wind.stab}등급</div></div>
     </div>
     <div class="two-col">
       <div><div id="map"></div></div>
@@ -101,7 +104,7 @@ function renderResult(rep) {
       <p class="adv-p muted small">근거: 악취방지법, 산업안전보건기준 규칙 제512조, Pasquill(1961), Martin(1976).</p>
       <hr class="adv-sep" />
       <div class="fxhead"><b>이 주소의 세부 변수값</b></div>
-      <p class="fixvars muted">고정 변수 — 풍속 u=${rep.wind.speed} m/s · 안정도 ${rep.wind.stab}등급 · 굴뚝높이 H=15 m · 풍향 ${rep.wind.fromDeg}° · 기준거리 r₁=1 m</p>
+      <p class="fixvars muted">고정 변수 — 풍속 u=${rep.wind.speed} m/s · 안정도 ${rep.wind.stab}등급 · 굴뚝높이 H=15 m · 풍향 ${windDir(rep.wind.fromDeg)} ${rep.wind.fromDeg}° · 기준거리 r₁=1 m</p>
       <div class="table-wrap"><table class="small-tbl"><thead><tr><th>회사명</th><th>업종</th><th>r₂(km)</th><th>x(km)</th><th>y(m)</th><th>σy</th><th>σz</th><th>Q</th><th>C(OU)</th><th>SPL₂</th></tr></thead><tbody>${detRows || '<tr><td colspan="10">핵심 배출원 없음</td></tr>'}</tbody></table></div>
     </details>
     <p class="note">본 등급은 정부 공인 배출 원단위·소음 표준과 지역 기상통계를 화공 수식에 적용한 추정치예요. 실제 환경은 그날의 기상·공장 운영 상황에 따라 달라질 수 있어요.</p>
@@ -116,7 +119,7 @@ function renderResult(rep) {
   renderMath(document.getElementById("result"));
 }
 
-function renderMath(el) {
+function renderMath(el, tries) {
   if (!el) return;
   if (window.renderMathInElement) {
     renderMathInElement(el, {
@@ -124,13 +127,13 @@ function renderMath(el) {
                    { left: "$", right: "$", display: false }],
       throwOnError: false,
     });
-  } else {
-    // KaTeX가 아직 로딩 중이면(빠른 분석 시) 잠시 뒤 재시도
-    setTimeout(() => renderMath(el), 200);
+  } else if ((tries || 0) < 30) {
+    // KaTeX가 아직 로딩 중이면(빠른 분석 시) 잠시 뒤 재시도(최대 6초)
+    setTimeout(() => renderMath(el, (tries || 0) + 1), 200);
   }
 }
 
-let CANDIDATES = [], PICKED = null, _searchTimer = null;
+let CANDIDATES = [], PICKED = null;
 
 function hideSuggest() {
   const s = document.getElementById("suggest");
@@ -174,7 +177,7 @@ async function analyze() {
   if (!addr && !PICKED) return;
   const radius = +document.getElementById("radius").value;
   const isDay = document.querySelector('input[name="period"]:checked').value === "day";
-  const wNoise = +document.getElementById("wnoise").value;
+  const wNoise = 1 - +document.getElementById("wnoise").value;  // 왼쪽=소음, 오른쪽=악취
   const complexKm = +document.getElementById("complex_km").value;
   const maxRows = +document.getElementById("max_rows").value;
   const live = document.getElementById("live").checked;
@@ -194,7 +197,14 @@ async function analyze() {
     }
     const r = await fetch(url);
     const rep = await r.json();
-    if (rep.error) { status.textContent = "⚠️ " + rep.error; return; }
+    if (rep.error) {
+      status.textContent = "";
+      document.getElementById("result").innerHTML =
+        `<div class="empty-state"><div class="empty-ic">⚠️</div>` +
+        `<div class="empty-title">분석할 수 없어요</div>` +
+        `<div class="empty-sub">${rep.error}<br>주소를 검색해 후보를 선택한 뒤 다시 시도해 주세요.</div></div>`;
+      return;
+    }
     status.textContent = "";
     renderResult(rep);
   } catch (e) {
@@ -207,8 +217,8 @@ async function analyze() {
 window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("radius").addEventListener("input", e => document.getElementById("radius-val").textContent = (+e.target.value).toFixed(1));
   document.getElementById("wnoise").addEventListener("input", e => {
-    document.getElementById("wnoise-val").textContent = (+e.target.value).toFixed(2);
-    document.getElementById("wodor-val").textContent = (1 - e.target.value).toFixed(2);
+    document.getElementById("wnoise-val").textContent = (1 - e.target.value).toFixed(2);
+    document.getElementById("wodor-val").textContent = (+e.target.value).toFixed(2);
   });
   document.getElementById("complex_km").addEventListener("input", e => document.getElementById("ckm-val").textContent = e.target.value);
   document.getElementById("max_rows").addEventListener("input", e => document.getElementById("mr-val").textContent = e.target.value);
