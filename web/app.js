@@ -52,7 +52,7 @@ function drawMap(rep) {
 
 function renderResult(rep) {
   const color = GRADE_COLOR[rep.grade] || "#888";
-  const chips = (rep.complexes || []).map(c => `<span class="chip">🏭 ${c.name} (${c.dist}km)</span>`).join(" ");
+  const chips = (rep.complexes || []).map(c => `<span class="chip">${c.name} · ${c.dist}km</span>`).join(" ");
   const rows = rep.nearby.map(f => `<tr><td>${f.core ? CORE_LABEL[f.core] : "-"}</td><td>${f.factory_name}</td><td>${f.industry_name || ""}</td><td style="text-align:right">${f.distance_km}</td></tr>`).join("");
   const detRows = (rep.detail || []).map(d => `<tr><td>${d.name}</td><td>${d.label}</td><td>${d.r2}</td><td>${d.x}</td><td>${d.y}</td><td>${d.sy}</td><td>${d.sz}</td><td>${d.Q}</td><td>${d.C}</td><td>${d.spl2}</td></tr>`).join("");
 
@@ -63,17 +63,17 @@ function renderResult(rep) {
         <div class="muted">종합 안심 주거 등급 ${ic(TIP.grade)}</div>
         <div class="score">${rep.composite}<span> / 100점</span></div>
         <div class="verdict">${GRADE_VERDICT[rep.grade] || ""}</div>
-        <div class="muted small">📍 ${rep.address}</div>
+        <div class="muted small">${rep.address}</div>
       </div>
     </div>
     ${chips ? `<div class="complexes"><b>자동 탐지된 산업단지</b> &nbsp;${chips}</div>` : ""}
-    ${rep.source ? `<div class="muted small" style="margin:-4px 0 8px;">📦 공장 데이터 출처: ${rep.source}</div>` : ""}
+    ${rep.source ? `<div class="muted small" style="margin:-2px 0 10px;">데이터 출처 · ${rep.source}</div>` : ""}
     ${rep.note ? `<div class="note" style="background:#fffbeb;color:#92722a;">ℹ️ ${rep.note}</div>` : ""}
     <div class="metrics">
-      <div class="metric"><div class="m-label">🔊 누적 소음 ${ic(TIP.noise)}</div><div class="m-val">${rep.noiseDb}<span class="unit">dB</span></div><div class="m-sub">${rep.noiseScore}점</div></div>
-      <div class="metric"><div class="m-label">👃 누적 악취 ${ic(TIP.odor)}</div><div class="m-val">${rep.odorOu}<span class="unit">OU</span></div><div class="m-sub">${rep.odorScore}점</div></div>
-      <div class="metric"><div class="m-label">🏭 핵심 배출원 / 반경내 ${ic(TIP.core)}</div><div class="m-val">${rep.coreCount} / ${rep.nearby.length}</div><div class="m-sub">3대 핵심 업종</div></div>
-      <div class="metric"><div class="m-label">🧭 바람 ${ic(TIP.wind)}</div><div class="m-val">${rep.wind.speed}<span class="unit">m/s</span></div><div class="m-sub">${rep.wind.fromDeg}° / ${rep.wind.stab}등급</div></div>
+      <div class="metric"><div class="m-label">누적 소음 ${ic(TIP.noise)}</div><div class="m-val">${rep.noiseDb}<span class="unit">dB</span></div><div class="m-sub">${rep.noiseScore}점</div></div>
+      <div class="metric"><div class="m-label">누적 악취 ${ic(TIP.odor)}</div><div class="m-val">${rep.odorOu}<span class="unit">OU</span></div><div class="m-sub">${rep.odorScore}점</div></div>
+      <div class="metric"><div class="m-label">핵심 배출원 / 반경내 ${ic(TIP.core)}</div><div class="m-val">${rep.coreCount} / ${rep.nearby.length}</div><div class="m-sub">3대 핵심 업종</div></div>
+      <div class="metric"><div class="m-label">바람 ${ic(TIP.wind)}</div><div class="m-val">${rep.wind.speed}<span class="unit">m/s</span></div><div class="m-sub">${rep.wind.fromDeg}° / ${rep.wind.stab}등급</div></div>
     </div>
     <div class="two-col">
       <div><div id="map"></div></div>
@@ -83,7 +83,7 @@ function renderResult(rep) {
         <div class="table-wrap"><table><thead><tr><th>핵심</th><th>회사명</th><th>업종</th><th>거리(km)</th></tr></thead><tbody>${rows}</tbody></table></div>
       </div>
     </div>
-    <details class="adv"><summary>🔬 세부 계산식 · 변수값 (고급)</summary>
+    <details class="adv"><summary>세부 계산식 · 변수값</summary>
       <p class="muted">고정 변수 — 풍속 u=${rep.wind.speed} m/s · 안정도 ${rep.wind.stab}등급 · 굴뚝높이 H=15 m · 풍향 ${rep.wind.fromDeg}° · 기준거리 r₁=1 m</p>
       <p><b>악취 (2차원 가우스 확산)</b></p>
       <p>$$C=\\dfrac{Q}{\\pi\\,u\\,\\sigma_y\\,\\sigma_z}\\,\\exp\\!\\left(-\\dfrac{y^2}{2\\sigma_y^2}\\right)\\exp\\!\\left(-\\dfrac{H^2}{2\\sigma_z^2}\\right),\\quad \\sigma_y=a\\,x^{b},\\ \\sigma_z=c\\,x^{d}$$</p>
@@ -120,7 +120,7 @@ async function search() {
   if (!q) return;
   const status = document.getElementById("search-status");
   const sel = document.getElementById("candidates");
-  status.textContent = "검색 중...";
+  status.innerHTML = `<span class="spin"></span>검색 중…`;
   PICKED = null; sel.style.display = "none";
   try {
     const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
@@ -150,9 +150,9 @@ async function analyze() {
   const status = document.getElementById("status");
   const btn = document.getElementById("btn-analyze");
   btn.disabled = true;
-  status.textContent = fsrc === "live"
-    ? "⏳ 산단공 API로 인근 공장을 실시간 조회 중… (1~2분 걸릴 수 있어요)"
-    : "⏳ 저장된 공장 데이터로 분석 중…";
+  status.innerHTML = `<span class="spin"></span>` + (fsrc === "live"
+    ? "산단공 API로 인근 공장을 실시간 조회 중… (1~2분 걸릴 수 있어요)"
+    : "저장된 공장 데이터로 분석 중…");
   try {
     let url = `/api/analyze?radius=${radius}&day=${isDay}&wnoise=${wNoise}&complex_km=${complexKm}&max_rows=${maxRows}&live=${live}&fsrc=${fsrc}`;
     if (PICKED) {
@@ -182,6 +182,10 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("max_rows").addEventListener("input", e => document.getElementById("mr-val").textContent = e.target.value);
   document.getElementById("btn-search").addEventListener("click", search);
   document.getElementById("btn-analyze").addEventListener("click", analyze);
+  // 사이드바 접기/펼치기
+  document.getElementById("sb-toggle").addEventListener("click", () => {
+    document.body.classList.toggle("sb-collapsed");
+  });
   // 주소창에서 Enter → 주소 검색
   document.getElementById("addr").addEventListener("keydown", e => {
     if (e.key === "Enter") { e.preventDefault(); search(); }
