@@ -87,12 +87,39 @@ def geocode(address: str, api_key: str = None, address_type: str = "ROAD"):
     if address_type == "ROAD":
         return geocode(address, key, address_type="PARCEL")
 
-    # 브이월드가 (배포 서버에서) 막히면 키 불필요한 OSM Nominatim 으로 폴백
+    # 브이월드가 (배포 서버에서) 막히면 → 카카오 REST(서버에서 안정적) → OSM 순 폴백
+    lat, lon = _kakao(address)
+    if lat is not None:
+        return lat, lon
     lat, lon = _nominatim(address)
     if lat is not None:
         return lat, lon
 
     print(f"[geocode] 좌표를 찾지 못했습니다 (status={status}): {address}")
+    return None, None
+
+
+def _kakao(address: str):
+    """카카오 로컬 REST 지오코딩 (KAKAO_REST_KEY 필요, 서버 IP 제한 없음)."""
+    key = os.getenv("KAKAO_REST_KEY", "")
+    if not key:
+        return None, None
+    hdr = {"Authorization": "KakaoAK " + key}
+    try:
+        # 1) 주소 검색
+        r = requests.get("https://dapi.kakao.com/v2/local/search/address.json",
+                         params={"query": address}, headers=hdr, timeout=15)
+        docs = r.json().get("documents", [])
+        if docs:
+            return float(docs[0]["y"]), float(docs[0]["x"])
+        # 2) 키워드(장소·건물명) 검색
+        r2 = requests.get("https://dapi.kakao.com/v2/local/search/keyword.json",
+                          params={"query": address}, headers=hdr, timeout=15)
+        docs2 = r2.json().get("documents", [])
+        if docs2:
+            return float(docs2[0]["y"]), float(docs2[0]["x"])
+    except Exception as e:
+        print(f"[kakao] 실패: {e}")
     return None, None
 
 
@@ -154,10 +181,40 @@ def search_address(query: str, api_key: str = None, size: int = 10) -> list:
         if results:
             break
 
-    # 2) 폴백: 검색 API가 막혔거나 결과가 없으면 '지오코더'로 직접 변환
-    #    (지오코더 API만 켜져 있어도 동작하도록)
+    # 2) 카카오 주소/키워드 검색 (서버에서 안정적, 여러 후보 반환)
+    if not results:
+        results = _kakao_search(query)
+
+    # 3) 최후 폴백: 지오코더로 단일 후보
     if not results:
         lat, lon = geocode(query)
         if lat is not None:
             results.append({"label": query, "lat": lat, "lon": lon})
     return results
+
+
+def _kakao_search(query: str, size: int = 8) -> list:
+    """카카오 로컬 검색 → 후보 [{label, lat, lon}, ...] (KAKAO_REST_KEY 필요)."""
+    key = os.getenv("KAKAO_REST_KEY", "")
+    if not key:
+        return []
+    hdr = {"Authorization": "KakaoAK " + key}
+    out = []
+    try:
+        r = requests.get("https://dapi.kakao.com/v2/local/search/address.json",
+                         params={"query": query, "size": size},
+                         headers=hdr, timeout=15)
+        for d in r.json().get("documents", []):
+            label = d.get("address_name") or d.get("road_address_name") or query
+            out.append({"label": label, "lat": float(d["y"]), "lon": float(d["x"])})
+        if not out:   # 주소로 안 나오면 키워드(건물·장소명)
+            r2 = requests.get("https://dapi.kakao.com/v2/local/search/keyword.json",
+                              params={"query": query, "size": size},
+                              headers=hdr, timeout=15)
+            for d in r2.json().get("documents", []):
+                label = (d.get("road_address_name") or d.get("address_name")
+                         or d.get("place_name") or query)
+                out.append({"label": label, "lat": float(d["y"]), "lon": float(d["x"])})
+    except Exception as e:
+        print(f"[kakao_search] 실패: {e}")
+    return out
