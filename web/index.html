@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>우리 동네 안심 명당</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-title">🏠 우리 동네 안심 명당</div>
+      <div class="brand-sub">산단 인근 소음·악취 안심 등급 진단</div>
+    </div>
+    <div id="sb-summary"></div>
+    <h4>📊 등급 범례</h4>
+    <div id="legend"></div>
+    <hr />
+    <h4>📝 사용 방법</h4>
+    <ol class="small">
+      <li>아파트 <b>주소 입력</b></li>
+      <li>반경·주야·가중치 조정(선택)</li>
+      <li><b>안심 등급 분석</b> 클릭</li>
+      <li>지도에서 주변 공장·바람 확인</li>
+    </ol>
+    <h4>🔗 데이터</h4>
+    <ul class="small">
+      <li>공장·업종: <b>한국산업단지공단</b> (실시간)</li>
+      <li>좌표: <b>국토교통부 브이월드</b> / OSM</li>
+    </ul>
+    <h4>⚠️ 참고</h4>
+    <p class="small muted">정부 공인 배출 원단위·소음 표준과 지역 기상통계를 화공 수식에 적용한 추정치예요. 실제 환경은 기상·운영 상황에 따라 달라질 수 있어요.</p>
+  </aside>
+
+  <main class="main">
+    <div class="header">
+      <div class="h-title">🏠 우리 동네 안심 명당</div>
+      <div class="h-sub">주소만 입력하면 인근 산업단지를 자동 탐지해 소음·악취 안심 등급(AAA~F)을 매겨요.</div>
+    </div>
+
+    <details class="methodology">
+      <summary>📚 분석 방법론 · 과학적 근거</summary>
+      <div class="m-body">
+        <p><b>왜 시뮬레이션인가?</b> 공장의 실시간 배출량은 영업비밀이라 공개되지 않아요. 정부 공인 '배출 원단위 가중치'와 '물리적 소음 표준'을 공인 화공 수식에 대입해요.</p>
+        <p><b>3대 핵심 배출 업종</b> — 화학(C20) Q=100·85dB / 고무·플라스틱(C22) 60·80dB / 금속가공(C25) 15·95dB</p>
+        <p><b>악취</b> — 2차원 가우스 확산 $C = \dfrac{Q}{\pi\,u\,\sigma_y\,\sigma_z}\exp\!\left(-\dfrac{y^2}{2\sigma_y^2}\right)\exp\!\left(-\dfrac{H^2}{2\sigma_z^2}\right)$, &nbsp; $\sigma_y=a\,x^{b},\ \sigma_z=c\,x^{d}$ (Martin, 낮 C / 밤 E)</p>
+        <p><b>소음</b> — 거리 역자승 감쇄 $SPL_2=SPL_1-20\log_{10}(r_2)$ + 로그 합산</p>
+        <p class="muted">근거: 악취방지법, 산업안전보건기준 규칙 §512, Pasquill(1961), Martin(1976).</p>
+      </div>
+    </details>
+
+    <section class="card search-card">
+      <div class="search-row">
+        <input id="addr" type="text" placeholder="아파트 주소를 입력하세요 (예: 울산 남구 야음동)" value="울산 남구 야음동" />
+        <button id="btn-search" class="btn">🔍 주소 검색</button>
+      </div>
+      <div id="search-status" class="status"></div>
+      <select id="candidates" style="display:none"></select>
+      <div class="opts">
+        <div class="opt">
+          <label>공장 탐색 반경 (km) — <span id="radius-val">5.0</span></label>
+          <input id="radius" type="range" min="1" max="10" step="0.5" value="5" />
+        </div>
+        <div class="opt">
+          <label>평가 기준</label>
+          <div class="radios">
+            <label><input type="radio" name="period" value="day" checked /> 주간</label>
+            <label><input type="radio" name="period" value="night" /> 야간</label>
+          </div>
+        </div>
+        <div class="opt">
+          <label>소음 가중치 <span id="wnoise-val">0.50</span> / 악취 <span id="wodor-val">0.50</span></label>
+          <input id="wnoise" type="range" min="0" max="1" step="0.05" value="0.5" />
+        </div>
+      </div>
+      <details class="adv" style="margin-top:14px;"><summary>⚙️ 고급 설정</summary>
+        <div class="opts">
+          <div class="opt"><label>산업단지 자동탐지 반경 (km) — <span id="ckm-val">15</span></label>
+            <input id="complex_km" type="range" min="5" max="30" step="1" value="15" /></div>
+          <div class="opt"><label>단지별 공장 수집 상한 — <span id="mr-val">600</span></label>
+            <input id="max_rows" type="range" min="100" max="2000" step="100" value="600" /></div>
+          <div class="opt"><label class="chk"><input id="live" type="checkbox" /> 기상청 실시간 바람 사용</label>
+            <div class="muted small">체크 시 기상청 초단기실황으로 풍향·풍속 적용(실패 시 표준값)</div></div>
+        </div>
+      </details>
+      <button id="btn-analyze" class="btn btn-primary">🏠 안심 등급 분석</button>
+      <div id="status" class="status"></div>
+    </section>
+
+    <div id="result"></div>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    const L_DESC = { AAA:"최상 · 매우 안전", AA:"우수", A:"양호", B:"보통", C:"주의", D:"미흡", E:"나쁨", F:"매우 나쁨" };
+    const L_COL = { AAA:"#1a9850", AA:"#66bd63", A:"#a6d96a", B:"#f9d057", C:"#fdae61", D:"#f46d43", E:"#d73027", F:"#a50026" };
+    document.getElementById("legend").innerHTML = Object.keys(L_DESC).map(g =>
+      `<div class="leg-row"><span class="leg-badge" style="background:${L_COL[g]}">${g}</span> ${L_DESC[g]}</div>`).join("");
+  </script>
+</body>
+</html>

@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: ansim-myeongdang
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn api:app --timeout 300 --workers 1
+    envVars:
+      - key: VWORLD_API_KEY
+        sync: false
+      - key: DATA_GO_KR_API_KEY
+        sync: false
+      - key: KMA_API_KEY
+        sync: false
+      - key: VWORLD_REFERER
+        sync: false
