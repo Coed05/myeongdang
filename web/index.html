@@ -57,26 +57,28 @@
     </details>
 
     <section class="card search-card">
+      <label class="field-label">1️⃣ 분석할 아파트 주소</label>
       <div class="search-row">
-        <input id="addr" type="text" placeholder="아파트 주소를 입력하세요 (예: 울산 남구 야음동)" value="울산 남구 야음동" />
+        <input id="addr" type="text" placeholder="예: 울산 남구 야음동, 안산 반월동" value="울산 남구 야음동" />
         <button id="btn-search" class="btn">🔍 주소 검색</button>
       </div>
       <div id="search-status" class="status"></div>
       <select id="candidates" style="display:none"></select>
+      <label class="field-label" style="margin-top:16px;">2️⃣ 분석 조건 <span class="muted small" style="font-weight:400;">(그대로 둬도 좋아요)</span></label>
       <div class="opts">
         <div class="opt">
-          <label>공장 탐색 반경 (km) — <span id="radius-val">5.0</span></label>
+          <label>공장 탐색 반경 (km) — <span id="radius-val">5.0</span> <span class="info" data-tip="이 거리(km) 안에 있는 공장만 소음·악취 계산에 포함해요. 보통 5km를 권장해요.">i</span></label>
           <input id="radius" type="range" min="1" max="10" step="0.5" value="5" />
         </div>
         <div class="opt">
-          <label>평가 기준</label>
+          <label>평가 기준 <span class="info" data-tip="주간(낮)·야간(밤)은 풍속과 대기안정도가 달라요. 소음 기준도 주간 55dB·야간 45dB로 다릅니다.">i</span></label>
           <div class="radios">
             <label><input type="radio" name="period" value="day" checked /> 주간</label>
             <label><input type="radio" name="period" value="night" /> 야간</label>
           </div>
         </div>
         <div class="opt">
-          <label>소음 가중치 <span id="wnoise-val">0.50</span> / 악취 <span id="wodor-val">0.50</span></label>
+          <label>소음 가중치 <span id="wnoise-val">0.50</span> / 악취 <span id="wodor-val">0.50</span> <span class="info" data-tip="종합 점수에서 소음과 악취를 반영하는 비율이에요. 0.50/0.50이면 동일 비중으로 계산해요.">i</span></label>
           <input id="wnoise" type="range" min="0" max="1" step="0.05" value="0.5" />
         </div>
       </div>
@@ -96,7 +98,7 @@
             <div class="muted small">체크 시 기상청 초단기실황으로 풍향·풍속 적용(실패 시 표준값)</div></div>
         </div>
       </details>
-      <button id="btn-analyze" class="btn btn-primary">🏠 안심 등급 분석</button>
+      <button id="btn-analyze" class="btn btn-primary">3️⃣ 🏠 안심 등급 분석하기</button>
       <div id="status" class="status"></div>
     </section>
 

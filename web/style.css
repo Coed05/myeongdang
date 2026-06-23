@@ -39,6 +39,7 @@ details summary { cursor: pointer; font-weight: 600; color: #334155; padding: 8p
 .m-body p { margin: 8px 0; font-size: 13.5px; line-height: 1.6; }
 
 .card { border: 1px solid var(--line); border-radius: 16px; background: #fff; padding: 18px; box-shadow: 0 1px 3px rgba(15,23,42,.04); margin-bottom: 16px; }
+.field-label { display: block; font-size: 13.5px; font-weight: 700; color: #334155; margin-bottom: 8px; }
 .search-row { display: flex; gap: 10px; }
 #addr { flex: 1; padding: 11px 14px; border: 1px solid #d8e0e7; border-radius: 9px; font-size: 15px; }
 .btn { padding: 11px 16px; border: 1px solid #d8e0e7; border-radius: 10px; background: #fff; font-weight: 700; cursor: pointer; font-family: inherit; transition: transform .12s; }
@@ -63,14 +64,39 @@ details summary { cursor: pointer; font-weight: 600; color: #334155; padding: 8p
 .badge-info { border-left: 1px solid color-mix(in srgb, var(--c) 30%, white); padding-left: 24px; }
 .badge .score { font-size: 30px; font-weight: 800; }
 .badge .score span { font-size: 16px; color: #94a3b8; font-weight: 600; }
+.badge .verdict { font-size: 14px; font-weight: 600; color: var(--c);
+  margin-top: 6px; filter: brightness(.8); }
 .complexes { margin: 6px 0 12px; font-size: 13px; }
 .chip { background: #eef2f7; border: 1px solid #dbe2ea; border-radius: 999px; padding: 3px 10px; font-size: 12px; color: #475569; margin-right: 4px; }
 
 .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0; }
-.metric { background: #f8fafc; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; }
-.m-label { color: var(--muted); font-size: 12.5px; }
-.m-val { font-size: 22px; font-weight: 800; margin-top: 2px; }
+.metric { background: #f8fafc; border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+  transition: box-shadow .15s, transform .15s; }
+.metric:hover { box-shadow: 0 3px 12px rgba(15,23,42,.07); transform: translateY(-1px); }
+.m-label { color: var(--muted); font-size: 12.5px; display: flex; align-items: center; gap: 4px; }
+.m-val { font-size: 24px; font-weight: 800; margin-top: 4px; }
+.m-val .unit { font-size: 14px; font-weight: 700; color: #94a3b8; margin-left: 2px; }
 .m-sub { color: #16a34a; font-size: 12px; margin-top: 2px; }
+
+/* 정보 툴팁 (라벨 옆 ⓘ 아이콘에 마우스 올리면 설명) */
+.info { display: inline-flex; align-items: center; justify-content: center;
+  width: 15px; height: 15px; border-radius: 50%; background: #cbd5e1; color: #fff;
+  font-size: 10px; font-weight: 800; font-style: normal; cursor: help;
+  position: relative; flex-shrink: 0; transition: background .15s; }
+.info:hover { background: var(--green); }
+.info::after { content: attr(data-tip); position: absolute; left: 50%; bottom: calc(100% + 9px);
+  transform: translateX(-50%); width: max-content; max-width: 240px; white-space: normal;
+  background: #1f2937; color: #fff; padding: 9px 11px; border-radius: 9px;
+  font-size: 12px; font-weight: 500; line-height: 1.55; text-align: left;
+  box-shadow: 0 6px 18px rgba(15,23,42,.22); opacity: 0; visibility: hidden;
+  transition: opacity .15s; z-index: 60; pointer-events: none; }
+.info::before { content: ""; position: absolute; left: 50%; bottom: calc(100% + 3px);
+  transform: translateX(-50%); border: 6px solid transparent; border-top-color: #1f2937;
+  opacity: 0; visibility: hidden; transition: opacity .15s; z-index: 60; }
+.info:hover::after, .info:hover::before { opacity: 1; visibility: visible; }
+/* 화면 우측 끝 카드(바람)에서 툴팁이 잘리지 않도록 우측 정렬 */
+.metric:last-child .info::after { left: auto; right: -4px; transform: none; }
+.metric:last-child .info::before { left: auto; right: 4px; transform: none; }
 
 .two-col { display: grid; grid-template-columns: 3fr 2fr; gap: 16px; margin-top: 8px; }
 #map { height: 460px; border-radius: 12px; border: 1px solid var(--line); }

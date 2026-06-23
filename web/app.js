@@ -2,6 +2,24 @@
 
 const GRADE_COLOR = { AAA:"#1a9850", AA:"#66bd63", A:"#a6d96a", B:"#f9d057", C:"#fdae61", D:"#f46d43", E:"#d73027", F:"#a50026" };
 const GRADE_DESC = { AAA:"최상 · 매우 안전", AA:"우수", A:"양호", B:"보통", C:"주의", D:"미흡", E:"나쁨", F:"매우 나쁨" };
+const GRADE_VERDICT = {
+  AAA: "소음·악취 영향이 거의 없는 매우 안전한 지역이에요.",
+  AA:  "소음·악취 영향이 적어 쾌적한 편이에요.",
+  A:   "대체로 양호해요. 약간의 영향은 있을 수 있어요.",
+  B:   "보통 수준이에요. 가까운 배출원을 확인해 보세요.",
+  C:   "주의가 필요해요. 소음·악취 영향이 다소 있어요.",
+  D:   "영향이 큰 편이에요. 신중히 검토하세요.",
+  E:   "소음·악취 영향이 커요. 권장하지 않아요.",
+  F:   "영향이 매우 커요. 거주에 부적합할 수 있어요.",
+};
+const TIP = {
+  noise: "반경 내 모든 공장의 소음을 거리에 따른 역자승 감쇄로 계산해 로그로 합산한 값이에요. 환경부 주거지역 기준은 주간 55dB · 야간 45dB.",
+  odor:  "핵심 배출원의 악취를 2차원 가우스 확산식으로 계산해 합산한 농도예요. OU는 '냄새가 안 느껴질 때까지 희석한 배수'로, 낮을수록 좋아요.",
+  core:  "반경 내 공장 중 소음·악취가 큰 3대 핵심 업종(화학 · 고무·플라스틱 · 금속가공) 수 / 전체 공장 수예요.",
+  wind:  "분석에 적용한 풍속(m/s)과 바람이 불어오는 방향(°), 대기안정도 등급이에요. 오염물질이 퍼지는 방향을 결정해요.",
+  grade: "AAA(최상)부터 F(매우 나쁨)까지 8단계. 소음·악취 점수를 가중 합산해 매겨요.",
+};
+const ic = (t) => `<span class="info" data-tip="${t}">i</span>`;
 const CORE_COLOR = { C20:"#dc2626", C22:"#ea580c", C25:"#2563eb" };
 const CORE_LABEL = { C20:"화학·석유화학", C22:"고무·플라스틱", C25:"금속가공·기계" };
 const DEG = Math.PI / 180;
@@ -42,8 +60,9 @@ function renderResult(rep) {
     <div class="badge" style="--c:${color}">
       <div class="grade">${rep.grade}</div>
       <div class="badge-info">
-        <div class="muted">종합 안심 주거 등급</div>
+        <div class="muted">종합 안심 주거 등급 ${ic(TIP.grade)}</div>
         <div class="score">${rep.composite}<span> / 100점</span></div>
+        <div class="verdict">${GRADE_VERDICT[rep.grade] || ""}</div>
         <div class="muted small">📍 ${rep.address}</div>
       </div>
     </div>
@@ -51,10 +70,10 @@ function renderResult(rep) {
     ${rep.source ? `<div class="muted small" style="margin:-4px 0 8px;">📦 공장 데이터 출처: ${rep.source}</div>` : ""}
     ${rep.note ? `<div class="note" style="background:#fffbeb;color:#92722a;">ℹ️ ${rep.note}</div>` : ""}
     <div class="metrics">
-      <div class="metric"><div class="m-label">누적 소음</div><div class="m-val">${rep.noiseDb} dB</div><div class="m-sub">${rep.noiseScore}점</div></div>
-      <div class="metric"><div class="m-label">누적 악취</div><div class="m-val">${rep.odorOu} OU</div><div class="m-sub">${rep.odorScore}점</div></div>
-      <div class="metric"><div class="m-label">핵심 배출원 / 반경내</div><div class="m-val">${rep.coreCount} / ${rep.nearby.length}</div><div class="m-sub">3대 핵심 업종</div></div>
-      <div class="metric"><div class="m-label">바람</div><div class="m-val">${rep.wind.speed} m/s</div><div class="m-sub">${rep.wind.fromDeg}° / ${rep.wind.stab}등급</div></div>
+      <div class="metric"><div class="m-label">🔊 누적 소음 ${ic(TIP.noise)}</div><div class="m-val">${rep.noiseDb}<span class="unit">dB</span></div><div class="m-sub">${rep.noiseScore}점</div></div>
+      <div class="metric"><div class="m-label">👃 누적 악취 ${ic(TIP.odor)}</div><div class="m-val">${rep.odorOu}<span class="unit">OU</span></div><div class="m-sub">${rep.odorScore}점</div></div>
+      <div class="metric"><div class="m-label">🏭 핵심 배출원 / 반경내 ${ic(TIP.core)}</div><div class="m-val">${rep.coreCount} / ${rep.nearby.length}</div><div class="m-sub">3대 핵심 업종</div></div>
+      <div class="metric"><div class="m-label">🧭 바람 ${ic(TIP.wind)}</div><div class="m-val">${rep.wind.speed}<span class="unit">m/s</span></div><div class="m-sub">${rep.wind.fromDeg}° / ${rep.wind.stab}등급</div></div>
     </div>
     <div class="two-col">
       <div><div id="map"></div></div>
@@ -163,6 +182,10 @@ window.addEventListener("DOMContentLoaded", () => {
   document.getElementById("max_rows").addEventListener("input", e => document.getElementById("mr-val").textContent = e.target.value);
   document.getElementById("btn-search").addEventListener("click", search);
   document.getElementById("btn-analyze").addEventListener("click", analyze);
+  // 주소창에서 Enter → 주소 검색
+  document.getElementById("addr").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); search(); }
+  });
   // 방법론 섹션의 수식도 렌더(KaTeX 로드 후)
   setTimeout(() => renderMath(document.querySelector(".methodology")), 300);
 });
