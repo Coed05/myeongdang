@@ -200,34 +200,83 @@ def _cache_targets(cache_path: str) -> list:
             os.path.join(tempfile.gettempdir(), fname)]
 
 
+# ---------------------------------------------------------------------------
+# 사전수집(prefetch) 데이터 — 있으면 API/지오코딩 없이 이 파일만 읽음
+# ---------------------------------------------------------------------------
+_PREFETCHED = None   # {단지명: DataFrame} 캐시 (서버 기동 후 1회 로드)
+
+PREFETCH_CSV = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                            "factories_prefetched.csv")
+
+
+def _load_prefetched():
+    """data/factories_prefetched.csv 를 {단지명: df} 로 1회 로드(메모리 캐시).
+    파일이 없으면 None 을 반환해 라이브 수집으로 폴백한다."""
+    global _PREFETCHED
+    if _PREFETCHED is not None:
+        return _PREFETCHED
+    if not os.path.exists(PREFETCH_CSV):
+        _PREFETCHED = {}
+        return _PREFETCHED
+    try:
+        df = pd.read_csv(PREFETCH_CSV, encoding="utf-8-sig")
+        df = _normalize_columns(df)
+        if "단지" not in df.columns:
+            _PREFETCHED = {}
+            return _PREFETCHED
+        _PREFETCHED = {name: g.reset_index(drop=True)
+                       for name, g in df.groupby("단지")}
+        print(f"[prefetch] 사전수집 데이터 로드: 단지 {len(_PREFETCHED)}곳, "
+              f"공장 {len(df)}개")
+    except Exception as e:
+        print(f"[prefetch] 로드 실패(라이브로 폴백): {e}")
+        _PREFETCHED = {}
+    return _PREFETCHED
+
+
 def fetch_near_apartment(apt_lat: float, apt_lon: float,
                          max_complex_km: float = 15.0,
                          max_rows: int = 1500,
-                         api_key: str = None):
+                         api_key: str = None,
+                         max_complexes: int = 3,
+                         max_total: int = 1200):
     """
     아파트 주변 산업단지를 '자동 탐지'해 그 단지들의 공장을 모두 합쳐 반환.
     (사용자가 산업단지명을 몰라도 주소만으로 인근 공장이 수집됨)
 
+    우선순위: 사전수집 CSV(있으면) → 없으면 산단공 API 라이브 수집.
+    max_complexes : 가장 가까운 단지 N곳까지만 처리 (서버 과부하 방지)
+    max_total     : 누적 공장 수가 이 값에 도달하면 중단
+
     반환: (factory_df, used_complexes)
-      - factory_df : 회사명/업종코드/위도/경도 (중복 제거됨)
-      - used_complexes : 실제 데이터를 얻은 단지 정보 리스트
     """
     from complexes import nearby_complexes
 
-    cands = nearby_complexes(apt_lat, apt_lon, max_complex_km)
-    frames, used = [], []
+    pre = _load_prefetched()
+    cands = nearby_complexes(apt_lat, apt_lon, max_complex_km)[:max_complexes]
+    frames, used, total = [], [], 0
     for c in cands:
-        try:
-            df = fetch_and_geocode(c["name"], max_rows=max_rows,
-                                   cache_path=f"factory_cache_{c['name']}.csv",
-                                   api_key=api_key)
-        except Exception as e:
-            print(f"  ({c['name']} 조회 실패, 건너뜀: {e})")
-            continue
-        if not df.empty:
+        if total >= max_total:
+            break
+        # 1) 사전수집 데이터 우선(즉시·무지오코딩)
+        if pre and c["name"] in pre:
+            df = pre[c["name"]]
+            src = "사전수집"
+        else:
+            # 2) 폴백: 라이브 API 수집(+지오코딩)
+            try:
+                df = fetch_and_geocode(c["name"], max_rows=max_rows,
+                                       cache_path=f"factory_cache_{c['name']}.csv",
+                                       api_key=api_key)
+                src = "라이브"
+            except Exception as e:
+                print(f"  ({c['name']} 조회 실패, 건너뜀: {e})")
+                continue
+        if df is not None and not df.empty:
             frames.append(df)
             used.append({**c, "factory_count": len(df)})
-            print(f"  [단지] {c['name']} ({c['dist_km']}km): 공장 {len(df)}개")
+            total += len(df)
+            print(f"  [단지/{src}] {c['name']} ({c['dist_km']}km): 공장 {len(df)}개")
 
     if not frames:
         return pd.DataFrame(columns=["회사명", "업종코드", "위도", "경도"]), []

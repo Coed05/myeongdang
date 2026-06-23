@@ -30,6 +30,12 @@ app = Flask(__name__, static_folder="web", static_url_path="")
 _CACHE = {}
 
 
+@app.errorhandler(Exception)
+def _handle_err(e):
+    """잡히는 예외는 502 대신 깔끔한 JSON으로 반환."""
+    return jsonify({"error": f"분석 중 서버 오류가 발생했어요: {e}"}), 200
+
+
 @app.route("/")
 def index():
     return send_from_directory("web", "index.html")
@@ -73,9 +79,14 @@ def api_analyze():
     if key in _CACHE:
         factory_df, used = _CACHE[key]
     else:
+        # 무료 호스트(512MB) OOM/타임아웃 방지: 가까운 단지 2곳, 단지당 400, 누적 600 상한
         factory_df, used = fetch_near_apartment(lat, lon,
                                                 max_complex_km=complex_km,
-                                                max_rows=max_rows)
+                                                max_rows=min(max_rows, 400),
+                                                max_complexes=2, max_total=600)
+        # 캐시 무한 증가 방지: 최근 8개 위치만 유지
+        if len(_CACHE) >= 8:
+            _CACHE.pop(next(iter(_CACHE)))
         _CACHE[key] = (factory_df, used)
 
     # 산업단지/공장을 못 찾아도 그 위치 기준으로 평가(배출원 0 → 안전)하도록
