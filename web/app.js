@@ -48,6 +48,7 @@ function renderResult(rep) {
       </div>
     </div>
     ${chips ? `<div class="complexes"><b>자동 탐지된 산업단지</b> &nbsp;${chips}</div>` : ""}
+    ${rep.source ? `<div class="muted small" style="margin:-4px 0 8px;">📦 공장 데이터 출처: ${rep.source}</div>` : ""}
     ${rep.note ? `<div class="note" style="background:#fffbeb;color:#92722a;">ℹ️ ${rep.note}</div>` : ""}
     <div class="metrics">
       <div class="metric"><div class="m-label">누적 소음</div><div class="m-val">${rep.noiseDb} dB</div><div class="m-sub">${rep.noiseScore}점</div></div>
@@ -126,12 +127,15 @@ async function analyze() {
   const complexKm = +document.getElementById("complex_km").value;
   const maxRows = +document.getElementById("max_rows").value;
   const live = document.getElementById("live").checked;
+  const fsrc = document.querySelector('input[name="fsrc"]:checked').value;
   const status = document.getElementById("status");
   const btn = document.getElementById("btn-analyze");
   btn.disabled = true;
-  status.textContent = "⏳ 인근 산업단지·공장을 실시간으로 조회 중… (첫 조회는 1~2분 걸릴 수 있어요)";
+  status.textContent = fsrc === "live"
+    ? "⏳ 산단공 API로 인근 공장을 실시간 조회 중… (1~2분 걸릴 수 있어요)"
+    : "⏳ 저장된 공장 데이터로 분석 중…";
   try {
-    let url = `/api/analyze?radius=${radius}&day=${isDay}&wnoise=${wNoise}&complex_km=${complexKm}&max_rows=${maxRows}&live=${live}`;
+    let url = `/api/analyze?radius=${radius}&day=${isDay}&wnoise=${wNoise}&complex_km=${complexKm}&max_rows=${maxRows}&live=${live}&fsrc=${fsrc}`;
     if (PICKED) {
       url += `&address=${encodeURIComponent(PICKED.label)}&lat=${PICKED.lat}&lon=${PICKED.lon}`;
     } else {

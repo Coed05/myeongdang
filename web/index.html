@@ -82,6 +82,12 @@
       </div>
       <details class="adv" style="margin-top:14px;"><summary>⚙️ 고급 설정</summary>
         <div class="opts">
+          <div class="opt"><label>공장 데이터 출처</label>
+            <div class="radios">
+              <label><input type="radio" name="fsrc" value="saved" checked /> 저장본 (빠름)</label>
+              <label><input type="radio" name="fsrc" value="live" /> 실시간 API</label>
+            </div>
+            <div class="muted small">저장본=미리 수집한 데이터로 즉시 분석 / 실시간=산단공 API 최신 조회(느림)</div></div>
           <div class="opt"><label>산업단지 자동탐지 반경 (km) — <span id="ckm-val">15</span></label>
             <input id="complex_km" type="range" min="5" max="30" step="1" value="15" /></div>
           <div class="opt"><label>단지별 공장 수집 상한 — <span id="mr-val">600</span></label>

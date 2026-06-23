@@ -239,20 +239,22 @@ def fetch_near_apartment(apt_lat: float, apt_lon: float,
                          max_rows: int = 1500,
                          api_key: str = None,
                          max_complexes: int = 3,
-                         max_total: int = 1200):
+                         max_total: int = 1200,
+                         use_prefetched: bool = True):
     """
     아파트 주변 산업단지를 '자동 탐지'해 그 단지들의 공장을 모두 합쳐 반환.
     (사용자가 산업단지명을 몰라도 주소만으로 인근 공장이 수집됨)
 
-    우선순위: 사전수집 CSV(있으면) → 없으면 산단공 API 라이브 수집.
-    max_complexes : 가장 가까운 단지 N곳까지만 처리 (서버 과부하 방지)
-    max_total     : 누적 공장 수가 이 값에 도달하면 중단
+    use_prefetched : True 면 사전수집 CSV 우선(빠름·OOM 없음),
+                     False 면 항상 산단공 API 실시간 수집(최신·느림).
+    max_complexes  : 가장 가까운 단지 N곳까지만 처리 (서버 과부하 방지)
+    max_total      : 누적 공장 수가 이 값에 도달하면 중단
 
     반환: (factory_df, used_complexes)
     """
     from complexes import nearby_complexes
 
-    pre = _load_prefetched()
+    pre = _load_prefetched() if use_prefetched else {}
     cands = nearby_complexes(apt_lat, apt_lon, max_complex_km)[:max_complexes]
     frames, used, total = [], [], 0
     for c in cands:

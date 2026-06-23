@@ -59,6 +59,9 @@ def api_analyze():
     max_rows = int(request.args.get("max_rows") or 600)
     complex_km = float(request.args.get("complex_km") or 15)
     use_live = (request.args.get("live") or "false").lower() == "true"
+    # 공장 데이터 출처: "saved"(사전수집·기본) 또는 "live"(산단공 API 실시간)
+    fsrc = (request.args.get("fsrc") or "saved").lower()
+    use_pre = fsrc != "live"
     # 검색 후보를 골랐으면 좌표를 직접 받음(재지오코딩 생략)
     qlat = request.args.get("lat")
     qlon = request.args.get("lon")
@@ -75,7 +78,7 @@ def api_analyze():
         return jsonify({"error": f"주소 좌표를 찾지 못했습니다: {address}"})
 
     # 2) 인근 산단 자동탐지 + 공장 실시간 수집 (단지별 캐시)
-    key = (round(lat, 3), round(lon, 3), max_rows, complex_km)
+    key = (round(lat, 3), round(lon, 3), max_rows, complex_km, fsrc)
     if key in _CACHE:
         factory_df, used = _CACHE[key]
     else:
@@ -83,7 +86,8 @@ def api_analyze():
         factory_df, used = fetch_near_apartment(lat, lon,
                                                 max_complex_km=complex_km,
                                                 max_rows=min(max_rows, 400),
-                                                max_complexes=2, max_total=600)
+                                                max_complexes=2, max_total=600,
+                                                use_prefetched=use_pre)
         # 캐시 무한 증가 방지: 최근 8개 위치만 유지
         if len(_CACHE) >= 8:
             _CACHE.pop(next(iter(_CACHE)))
@@ -117,6 +121,7 @@ def api_analyze():
                  "fromDeg": rep["wind"]["wind_from_deg"],
                  "stab": rep["stability_class"]},
         "complexes": [{"name": c["name"], "dist": c["dist_km"]} for c in used],
+        "source": "실시간 API" if fsrc == "live" else "저장본(사전수집)",
         "detail": _detail(rep),
         "note": ("주변 탐색 반경 내에서 등록 산업단지의 공장을 찾지 못했어요. "
                  "배출원이 없어 매우 안전한 지역으로 평가됩니다.") if no_data_note else "",
