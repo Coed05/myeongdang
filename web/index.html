@@ -32,7 +32,8 @@
     <h4>🔗 데이터</h4>
     <ul class="small">
       <li>공장·업종: <b>한국산업단지공단</b> (실시간)</li>
-      <li>좌표: <b>국토교통부 브이월드</b> / OSM</li>
+      <li>주소·좌표: <b>카카오 로컬</b> / 브이월드 / OSM</li>
+      <li>기상: <b>기상청 단기예보</b></li>
     </ul>
     <h4>⚠️ 참고</h4>
     <p class="small muted">정부 공인 배출 원단위·소음 표준과 지역 기상통계를 화공 수식에 적용한 추정치예요. 실제 환경은 기상·운영 상황에 따라 달라질 수 있어요.</p>
@@ -94,6 +95,35 @@
     </section>
 
     <div id="result"></div>
+
+    <footer class="sources">
+      <h3>📑 데이터 출처 · 참고문헌</h3>
+      <div class="src-grid">
+        <div>
+          <b>데이터 출처</b>
+          <ul>
+            <li>공장 위치·업종: <a href="https://www.data.go.kr/data/15087611/openapi.do" target="_blank" rel="noopener">한국산업단지공단_공장등록정보조회서비스</a> (공공데이터포털)</li>
+            <li>업종별 입주업체 통계: <a href="https://www.data.go.kr/tcs/dss/selectDataSetList.do?org=한국산업단지공단" target="_blank" rel="noopener">한국산업단지공단_산업동향조사 통계</a></li>
+            <li>주소·좌표: <a href="https://developers.kakao.com/" target="_blank" rel="noopener">카카오 로컬 API</a> · <a href="https://www.vworld.kr/" target="_blank" rel="noopener">국토교통부 브이월드</a></li>
+            <li>기상(풍향·풍속): <a href="https://www.data.go.kr/data/15084084/openapi.do" target="_blank" rel="noopener">기상청_단기예보 조회서비스</a></li>
+            <li>지도: <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a> 기여자</li>
+          </ul>
+        </div>
+        <div>
+          <b>법적 · 학술 근거</b>
+          <ul>
+            <li>업종별 악취 배출 원단위 — <a href="https://www.nier.go.kr/" target="_blank" rel="noopener">국립환경과학원</a> 복합악취 배출 원단위 조사</li>
+            <li><a href="https://www.law.go.kr/법령/악취방지법" target="_blank" rel="noopener">악취방지법</a> 및 시행규칙 [별표 1] 특정악취물질 배출허용기준</li>
+            <li><a href="https://www.law.go.kr/법령/산업안전보건기준에관한규칙" target="_blank" rel="noopener">산업안전보건기준에 관한 규칙 제512조</a> (소음작업·강렬한 소음작업)</li>
+            <li>환경부 주거지역 생활소음 기준 (주간 55 dB / 야간 45 dB)</li>
+            <li>Pasquill, F. (1961). <i>The estimation of the dispersion of windborne material.</i> Meteorological Magazine, 90, 33–49. (대기 안정도)</li>
+            <li>Martin, D. O. (1976). <i>Comment on “The change of concentration standard deviations with distance.”</i> JAPCA, 26(2), 145–146. (분산계수)</li>
+            <li>표준 풍속: 기상청 울산 지점 2025 기상통계 (연평균 2.98 / 낮 3.24 / 밤 2.61 m/s)</li>
+          </ul>
+        </div>
+      </div>
+      <p class="muted small">본 서비스는 공공데이터와 정부 공인 상수를 화공 수식에 적용한 <b>시뮬레이션 추정치</b>입니다. 실시간 실측값이 아니며, 실제 환경은 그날의 기상·공장 운영 상황에 따라 달라질 수 있습니다. © 우리 동네 안심 명당</p>
+    </footer>
   </main>
 
   <script src="app.js"></script>
