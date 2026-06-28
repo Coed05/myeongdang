@@ -15,9 +15,11 @@ import os
 
 from flask import Flask, request, jsonify, send_from_directory
 
-from geocoding import geocode, search_address
+from geocoding import geocode, search_address, search_apartments
 from factories import fetch_near_apartment
+from weather import get_wind_by_latlon
 from pipeline import run_assessment
+from config import WIND_SPEED_DAY, WIND_SPEED_NIGHT
 from config import (core_of, get_industry_weight, INDUSTRY_WEIGHTS,
                     DEFAULT_STACK_HEIGHT_M)
 from geo import decompose_wind
@@ -48,6 +50,76 @@ def api_search():
     if not q:
         return jsonify([])
     return jsonify(search_address(q))
+
+
+# 현재 지원 지역(피드백: 울산·여수만)
+SUPPORTED_REGIONS = ["울산", "여수"]
+
+
+@app.route("/api/neighborhood")
+def api_neighborhood():
+    """
+    동네 검색 → 그 동네 아파트들의 안심 등급을 계산해 리스트로 반환하고
+    가장 높은 등급의 아파트 TOP 3를 추천. (울산·여수 지역만)
+    """
+    q = (request.args.get("q") or "").strip()
+    is_day = (request.args.get("day") or "true").lower() == "true"
+    wnoise = float(request.args.get("wnoise") or 0.5)
+    radius = float(request.args.get("radius") or 5)
+    live = (request.args.get("live") or "false").lower() == "true"
+    if not q:
+        return jsonify({"error": "동네를 입력하세요."})
+
+    cands = search_address(q)
+    if not cands:
+        return jsonify({"error": f"동네를 찾지 못했어요: {q}"})
+    center = cands[0]
+    label = center.get("label", "")
+    region = next((r for r in SUPPORTED_REGIONS if r in label or r in q), None)
+    if region is None:
+        return jsonify({"error": "현재 울산·여수 지역만 지원해요. "
+                                 "(예: 울산 남구 야음동, 여수시 화양면)"})
+    clat, clon = center["lat"], center["lon"]
+
+    # 1) 주변 공장 1회 수집(공유), 바람 1회 산정
+    factory_df, used = fetch_near_apartment(
+        clat, clon, max_complex_km=15, max_rows=400,
+        max_complexes=2, max_total=600, use_prefetched=True)
+    import pandas as pd
+    if factory_df is None:
+        factory_df = pd.DataFrame(columns=["회사명", "업종코드", "위도", "경도"])
+    if live:
+        wind = get_wind_by_latlon(clat, clon)
+    else:
+        u = WIND_SPEED_DAY if is_day else WIND_SPEED_NIGHT
+        wind = {"wind_speed": u, "wind_from_deg": 225.0}
+
+    # 2) 동네 아파트 목록(카카오) → 각 아파트 등급 계산
+    apts = search_apartments(q)
+    items = []
+    for ap in apts:
+        rep = run_assessment(ap["name"], factory_df, apt_coords=(ap["lat"], ap["lon"]),
+                             wind=wind, is_daytime=is_day, radius_km=radius,
+                             noise_weight=wnoise, odor_weight=1 - wnoise)
+        if "error" in rep:
+            continue
+        items.append({
+            "name": ap["name"], "addr": ap["addr"],
+            "lat": ap["lat"], "lon": ap["lon"],
+            "grade": rep["grade"], "composite": rep["composite_score"],
+            "noiseDb": rep["noise_db"], "odorOu": rep["odor_ou"],
+            "noiseScore": rep["noise_score"], "odorScore": rep["odor_score"],
+            "coreCount": rep["core_source_count"], "nearbyCount": rep["nearby_factory_count"],
+            "summary": rep.get("ai_summary", ""),
+        })
+    # 3) 등급(종합점수) 높은 순 정렬 + TOP 3
+    items.sort(key=lambda x: (-x["composite"], x["name"]))
+    return jsonify({
+        "neighborhood": q, "region": region,
+        "center": {"lat": clat, "lon": clon},
+        "complexes": [{"name": c["name"], "dist": c["dist_km"]} for c in used],
+        "count": len(items), "apartments": items, "top3": items[:3],
+    })
 
 
 @app.route("/api/analyze")
@@ -116,6 +188,8 @@ def api_analyze():
         "composite": rep["composite_score"],
         "noiseDb": rep["noise_db"], "odorOu": rep["odor_ou"],
         "noiseScore": rep["noise_score"], "odorScore": rep["odor_score"],
+        "noiseGrade": rep.get("noise_grade"), "odorGrade": rep.get("odor_grade"),
+        "aiSummary": rep.get("ai_summary", ""),
         "coreCount": rep["core_source_count"], "nearby": nearby,
         "wind": {"speed": round(rep["wind"]["wind_speed"], 1),
                  "fromDeg": round(rep["wind"]["wind_from_deg"]),

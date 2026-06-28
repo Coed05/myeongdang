@@ -68,8 +68,8 @@ def run_assessment(address: str,
         else:
             u = WIND_SPEED_DAY if is_daytime else WIND_SPEED_NIGHT
             wind = {"wind_speed": u, "wind_from_deg": 225.0}
-    # 안정도: 표준화(낮=C / 밤=E)
-    stab = stability_class(is_daytime)
+    # 안정도: 풍속·하늘상태(SKY)로 산정 (실시간 값 없으면 낮=C/밤=E 폴백)
+    stab = stability_class(is_daytime, wind.get("wind_speed"), wind.get("sky"))
 
     # 4) 수식 연산
     noise_db = total_noise_at_apartment(apt_lat, apt_lon, factories)
@@ -83,7 +83,7 @@ def run_assessment(address: str,
     w2 = ODOR_WEIGHT if odor_weight is None else odor_weight
     result = evaluate(noise_db, odor_ou, is_daytime, w1, w2)
 
-    return {
+    report = {
         "address": address,
         "coordinates": {"lat": round(apt_lat, 6), "lon": round(apt_lon, 6)},
         "wind": wind,
@@ -94,6 +94,13 @@ def run_assessment(address: str,
         "nearby_factories": factories,
         **result,
     }
+    # AI 요약(규칙기반) — "왜 이 등급인가" 자연어 설명
+    try:
+        from ai_summary import generate_summary
+        report["ai_summary"] = generate_summary(report)
+    except Exception as e:
+        report["ai_summary"] = ""
+    return report
 
 
 def print_report(report: dict):

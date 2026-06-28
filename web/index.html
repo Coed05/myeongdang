@@ -26,10 +26,10 @@
     <hr />
     <h4>사용 방법</h4>
     <ol class="small steps">
-      <li><b>주소 입력</b> 후 후보 선택</li>
-      <li>반경·주야·가중치 조정(선택)</li>
-      <li><b>안심 등급 분석</b> 클릭</li>
-      <li>지도에서 주변 공장·바람 확인</li>
+      <li><b>동네 입력</b> (울산·여수)</li>
+      <li><b>동네 검색</b> 클릭</li>
+      <li>추천 <b>TOP 3</b>·아파트 등급 확인</li>
+      <li>아파트 클릭 → 상세 + <b>AI 요약</b></li>
     </ol>
     <h4>데이터</h4>
     <ul class="small">
@@ -48,64 +48,52 @@
     </button>
     <div class="header">
       <div class="h-title">우리 동네 안심 명당</div>
-      <div class="h-sub">주소만 입력하면 인근 산업단지를 자동 탐지해 소음·악취 안심 등급(AAA~F)을 매겨드려요.</div>
+      <div class="h-sub">동네를 검색하면 그 동네 아파트들의 소음·악취 안심 등급(AAA~F)을 매기고, 가장 좋은 곳 <b>TOP 3</b>를 추천해드려요. <b>(현재 울산·여수 지원)</b></div>
     </div>
 
     <section class="card search-card">
-      <label class="field-label">분석할 주소</label>
+      <label class="field-label">분석할 동네 <span class="muted small" style="font-weight:400">· 울산 · 여수</span></label>
       <div class="search-box">
         <div class="search-row">
-          <input id="addr" type="text" autocomplete="off" placeholder="예: 울산 남구 야음동, 안산 반월동" value="울산 남구 야음동" />
-          <button id="btn-search" class="btn">검색</button>
+          <input id="addr" type="text" autocomplete="off" placeholder="예: 울산 남구 야음동, 여수시 화양동" value="울산 남구 야음동" />
+          <button id="btn-search" class="btn-primary" style="width:auto;margin:0;padding:13px 24px">🔍 동네 검색</button>
         </div>
-        <div id="suggest" class="suggest" style="display:none"></div>
       </div>
       <div id="search-status" class="status"></div>
       <div class="opts">
         <div class="opt">
-          <label>탐색 반경 (km) · <span id="radius-val">5.0</span> <span class="info" data-tip="이 거리(km) 안에 있는 공장만 소음·악취 계산에 포함해요. 보통 5km를 권장해요.">i</span></label>
+          <label>공장 탐색 반경 (km) · <span id="radius-val">5.0</span> <span class="info" data-tip="각 아파트에서 이 거리(km) 안에 있는 공장만 소음·악취 계산에 포함해요. 보통 5km를 권장해요.">i</span></label>
           <input id="radius" type="range" min="1" max="10" step="0.5" value="5" />
         </div>
         <div class="opt">
-          <label>평가 기준 <span class="info" data-tip="주간(낮)·야간(밤)은 풍속과 대기안정도가 달라요. 소음 기준도 주간 55dB·야간 45dB로 다릅니다.">i</span></label>
+          <label>평가 기준 <span class="info" data-tip="주간(낮)·야간(밤)은 풍속·대기안정도가 달라요.">i</span></label>
           <div class="radios">
             <label><input type="radio" name="period" value="day" checked /> 주간</label>
             <label><input type="radio" name="period" value="night" /> 야간</label>
           </div>
         </div>
         <div class="opt">
-          <label>가중치 소음 <span id="wnoise-val">0.50</span> · 악취 <span id="wodor-val">0.50</span> <span class="info" data-tip="종합 점수에서 소음과 악취를 반영하는 비율이에요. 0.50/0.50이면 동일 비중으로 계산해요.">i</span></label>
+          <label>가중치 소음 <span id="wnoise-val">0.50</span> · 악취 <span id="wodor-val">0.50</span> <span class="info" data-tip="종합 점수에서 소음과 악취를 반영하는 비율이에요.">i</span></label>
           <input id="wnoise" type="range" min="0" max="1" step="0.05" value="0.5" />
-        </div>
-        <div class="opt">
-          <label>데이터 출처 <span class="info" data-tip="저장본=미리 수집한 데이터로 즉시 분석. 실시간=산단공 API로 최신 조회(느림).">i</span></label>
-          <div class="radios">
-            <label><input type="radio" name="fsrc" value="saved" checked /> 저장본</label>
-            <label><input type="radio" name="fsrc" value="live" /> 실시간</label>
-          </div>
         </div>
       </div>
       <details class="adv">
         <summary>⚙️ 고급 설정</summary>
         <div class="opts">
-          <div class="opt"><label>산업단지 자동탐지 반경 (km) · <span id="ckm-val">15</span> <span class="info" data-tip="입력한 주소에서 이 거리(km) 안에 있는 산업단지를 자동으로 찾아, 그 단지의 공장을 수집해요. 넓힐수록 더 먼 단지까지 포함해요.">i</span></label>
-            <input id="complex_km" type="range" min="5" max="30" step="1" value="15" /></div>
-          <div class="opt"><label>단지별 공장 수집 상한 · <span id="mr-val">600</span> <span class="info" data-tip="한 산업단지에서 가져올 공장 수의 최대치예요. 크게 하면 더 많은 공장을 보지만 분석이 느려질 수 있어요.">i</span></label>
-            <input id="max_rows" type="range" min="100" max="2000" step="100" value="600" /></div>
           <div class="opt"><label class="chk"><input id="live" type="checkbox" /> 기상청 실시간 바람 사용 <span class="info" data-tip="체크 시 기상청 초단기실황으로 풍향·풍속을 적용해요(실패 시 표준값).">i</span></label></div>
         </div>
       </details>
-      <button id="btn-analyze" class="btn btn-primary">안심 등급 분석하기</button>
       <div id="status" class="status"></div>
     </section>
 
     <div id="result">
       <div class="empty-state">
-        <div class="empty-ic">🏠</div>
-        <div class="empty-title">우리 동네 안심 등급을 확인해보세요</div>
-        <div class="empty-sub">위에 주소를 입력하고 <b>분석하기</b>를 누르면<br>주변 공장의 소음·악취 영향을 한눈에 알려드려요.</div>
+        <div class="empty-ic">🏘️</div>
+        <div class="empty-title">동네를 검색해보세요</div>
+        <div class="empty-sub">동네를 입력하고 <b>동네 검색</b>을 누르면<br>그 동네 아파트들의 안심 등급과 추천 <b>TOP 3</b>가 나와요.</div>
       </div>
     </div>
+    <div id="detail"></div>
 
     <footer class="sources">
       <h3>데이터 출처 · 참고문헌</h3>

@@ -218,3 +218,42 @@ def _kakao_search(query: str, size: int = 8) -> list:
     except Exception as e:
         print(f"[kakao_search] 실패: {e}")
     return out
+
+
+def search_apartments(neighborhood: str, size: int = 15) -> list:
+    """
+    카카오 키워드 검색으로 동네 내 '아파트 단지' 목록을 수집.
+    (별도 아파트 DB 없이 카카오 로컬 API로 단지명·좌표를 자동 확보)
+
+    반환: [{'name','addr','lat','lon'}, ...]
+    """
+    key = os.getenv("KAKAO_REST_KEY", "")
+    if not key or not neighborhood.strip():
+        return []
+    hdr = {"Authorization": "KakaoAK " + key}
+    out, seen = [], set()
+    try:
+        for page in (1, 2, 3):
+            r = requests.get(
+                "https://dapi.kakao.com/v2/local/search/keyword.json",
+                params={"query": f"{neighborhood} 아파트", "size": 15, "page": page},
+                headers=hdr, timeout=15)
+            data = r.json()
+            for d in data.get("documents", []):
+                name = d.get("place_name", "")
+                cat = d.get("category_name", "")
+                if "아파트" not in cat and "아파트" not in name:
+                    continue
+                if name in seen:
+                    continue
+                seen.add(name)
+                out.append({
+                    "name": name,
+                    "addr": d.get("road_address_name") or d.get("address_name", ""),
+                    "lat": float(d["y"]), "lon": float(d["x"]),
+                })
+            if data.get("meta", {}).get("is_end", True) or len(out) >= size:
+                break
+    except Exception as e:
+        print(f"[apartments] 실패: {e}")
+    return out[:size]

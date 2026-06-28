@@ -61,13 +61,17 @@ function drawMap(rep) {
   MAP_TIMERS.push(setTimeout(fit, 250), setTimeout(fit, 600));
 }
 
-function renderResult(rep) {
+function renderResult(rep, targetId) {
+  const TGT = targetId || "result";
   const color = GRADE_COLOR[rep.grade] || "#888";
   const chips = (rep.complexes || []).map(c => `<span class="chip">${c.name} · ${c.dist} km</span>`).join(" ");
   const rows = rep.nearby.map(f => `<tr><td>${f.core ? CORE_LABEL[f.core] : "-"}</td><td>${f.factory_name}</td><td>${f.industry_name || ""}</td><td style="text-align:right">${(+f.distance_km).toFixed(2)} km</td></tr>`).join("");
   const detRows = (rep.detail || []).map(d => `<tr><td>${d.name}</td><td>${d.label}</td><td>${d.r2}</td><td>${d.x}</td><td>${d.y}</td><td>${d.sy}</td><td>${d.sz}</td><td>${d.Q}</td><td>${d.C}</td><td>${d.spl2}</td></tr>`).join("");
+  const back = TGT === "detail" ? `<a class="back-link" href="#detail" onclick="backToList(event)">← 동네 아파트 목록으로</a>` : "";
+  const ng = rep.noiseGrade ? `${rep.noiseGrade} · ` : "";
+  const og = rep.odorGrade ? `${rep.odorGrade} · ` : "";
 
-  document.getElementById("result").innerHTML = `
+  document.getElementById(TGT).innerHTML = back + `
     <div class="badge" style="--c:${color}">
       <div class="grade">${rep.grade}</div>
       <div class="badge-info">
@@ -78,11 +82,11 @@ function renderResult(rep) {
       </div>
     </div>
     ${chips ? `<div class="complexes"><b>자동 탐지된 산업단지</b> &nbsp;${chips}</div>` : ""}
-    ${rep.source ? `<div class="muted small" style="margin:-2px 0 10px;">데이터 출처 · ${rep.source}</div>` : ""}
     ${rep.note ? `<div class="note" style="background:#fffbeb;color:#92722a;">ℹ️ ${rep.note}</div>` : ""}
+    ${rep.aiSummary ? `<div class="ai-box"><div class="ai-head"><span class="ai-badge">AI 요약</span> 왜 ${rep.grade}등급일까요?</div><div class="ai-body">${rep.aiSummary}</div></div>` : ""}
     <div class="metrics">
-      <div class="metric"><div class="m-label">누적 소음 ${ic(TIP.noise)}</div><div class="m-val">${rep.noiseDb}<span class="unit">dB</span></div><div class="m-sub">${rep.noiseScore}점</div></div>
-      <div class="metric"><div class="m-label">누적 악취 ${ic(TIP.odor)}</div><div class="m-val">${rep.odorOu}<span class="unit">OU</span></div><div class="m-sub">${rep.odorScore}점</div></div>
+      <div class="metric"><div class="m-label">누적 소음 ${ic(TIP.noise)}</div><div class="m-val">${rep.noiseDb}<span class="unit">dB</span></div><div class="m-sub">${ng}${rep.noiseScore}점</div></div>
+      <div class="metric"><div class="m-label">누적 악취 ${ic(TIP.odor)}</div><div class="m-val">${rep.odorOu}<span class="unit">OU</span></div><div class="m-sub">${og}${rep.odorScore}점</div></div>
       <div class="metric"><div class="m-label">핵심 배출원 / 반경내 ${ic(TIP.core)}</div><div class="m-val">${rep.coreCount} / ${rep.nearby.length}</div><div class="m-sub">3대 핵심 업종</div></div>
       <div class="metric"><div class="m-label">바람 ${ic(TIP.wind)}</div><div class="m-val">${rep.wind.speed}<span class="unit">m/s</span></div><div class="m-sub">${windDir(rep.wind.fromDeg)} ${rep.wind.fromDeg}° / ${rep.wind.stab}등급</div></div>
     </div>
@@ -116,7 +120,7 @@ function renderResult(rep) {
       <div class="muted small">소음 ${rep.noiseDb} dB · 악취 ${rep.odorOu} OU<br>핵심 배출원 ${rep.coreCount} / ${rep.nearby.length}곳</div>
     </div>`;
   drawMap(rep);
-  renderMath(document.getElementById("result"));
+  renderMath(document.getElementById(TGT));
 }
 
 function renderMath(el, tries) {
@@ -133,85 +137,96 @@ function renderMath(el, tries) {
   }
 }
 
-let CANDIDATES = [], PICKED = null;
+let APTS = [];
+const GBADGE = (g) => `<span class="gbadge" style="background:${GRADE_COLOR[g] || '#888'}">${g}</span>`;
 
-function hideSuggest() {
-  const s = document.getElementById("suggest");
-  s.style.display = "none"; s.innerHTML = "";
-}
-
-function renderSuggest() {
-  const s = document.getElementById("suggest");
-  if (!CANDIDATES.length) {
-    s.innerHTML = `<div class="suggest-empty">검색 결과가 없어요. 더 구체적으로 입력해 보세요.</div>`;
-    s.style.display = "block"; return;
-  }
-  s.innerHTML = CANDIDATES.map((c, i) => `<div class="suggest-item" data-i="${i}">${c.label}</div>`).join("");
-  s.style.display = "block";
-  s.querySelectorAll(".suggest-item").forEach(el => {
-    el.addEventListener("click", () => {
-      PICKED = CANDIDATES[+el.dataset.i];
-      document.getElementById("addr").value = PICKED.label;
-      hideSuggest();
-    });
-  });
-}
-
-// 검색 버튼/Enter로 후보 조회
-async function search() {
+// 동네 검색 → 그 동네 아파트들의 등급 + TOP3
+async function searchNeighborhood() {
   const q = document.getElementById("addr").value.trim();
-  const status = document.getElementById("search-status");
   if (!q) return;
-  status.innerHTML = `<span class="spin"></span>검색 중…`;
-  PICKED = null;
-  try {
-    const r = await fetch(`/api/search?q=${encodeURIComponent(q)}`);
-    CANDIDATES = (await r.json()) || [];
-  } catch (e) { CANDIDATES = []; }
-  status.textContent = "";
-  renderSuggest();
-}
-
-async function analyze() {
-  const addr = document.getElementById("addr").value.trim();
-  if (!addr && !PICKED) return;
   const radius = +document.getElementById("radius").value;
   const isDay = document.querySelector('input[name="period"]:checked').value === "day";
   const wNoise = 1 - +document.getElementById("wnoise").value;  // 왼쪽=소음, 오른쪽=악취
-  const complexKm = +document.getElementById("complex_km").value;
-  const maxRows = +document.getElementById("max_rows").value;
   const live = document.getElementById("live").checked;
-  const fsrc = document.querySelector('input[name="fsrc"]:checked').value;
   const status = document.getElementById("status");
-  const btn = document.getElementById("btn-analyze");
+  const btn = document.getElementById("btn-search");
+  document.getElementById("detail").innerHTML = "";
   btn.disabled = true;
-  status.innerHTML = `<span class="spin"></span>` + (fsrc === "live"
-    ? "산단공 API로 인근 공장을 실시간 조회 중… (1~2분 걸릴 수 있어요)"
-    : "저장된 공장 데이터로 분석 중…");
+  status.innerHTML = `<span class="spin"></span>'${q}' 아파트들의 안심 등급을 계산 중… (첫 조회는 시간이 걸릴 수 있어요)`;
   try {
-    let url = `/api/analyze?radius=${radius}&day=${isDay}&wnoise=${wNoise}&complex_km=${complexKm}&max_rows=${maxRows}&live=${live}&fsrc=${fsrc}`;
-    if (PICKED) {
-      url += `&address=${encodeURIComponent(PICKED.label)}&lat=${PICKED.lat}&lon=${PICKED.lon}`;
-    } else {
-      url += `&address=${encodeURIComponent(addr)}`;
-    }
+    const url = `/api/neighborhood?q=${encodeURIComponent(q)}&radius=${radius}&day=${isDay}&wnoise=${wNoise}&live=${live}`;
     const r = await fetch(url);
-    const rep = await r.json();
-    if (rep.error) {
-      status.textContent = "";
-      document.getElementById("result").innerHTML =
-        `<div class="empty-state"><div class="empty-ic">⚠️</div>` +
-        `<div class="empty-title">분석할 수 없어요</div>` +
-        `<div class="empty-sub">${rep.error}<br>주소를 검색해 후보를 선택한 뒤 다시 시도해 주세요.</div></div>`;
+    const data = await r.json();
+    status.textContent = "";
+    if (data.error) {
+      document.getElementById("result").innerHTML = `<div class="empty-state"><div class="empty-ic">⚠️</div><div class="empty-title">${data.error}</div></div>`;
       return;
     }
-    status.textContent = "";
-    renderResult(rep);
+    renderNeighborhood(data);
   } catch (e) {
-    status.textContent = "⚠️ 분석 중 오류가 발생했어요: " + e;
-  } finally {
-    btn.disabled = false;
+    status.textContent = "⚠️ 오류가 발생했어요: " + e;
+  } finally { btn.disabled = false; }
+}
+
+function renderNeighborhood(data) {
+  const result = document.getElementById("result");
+  APTS = data.apartments || [];
+  if (!APTS.length) {
+    result.innerHTML = `<div class="empty-state"><div class="empty-ic">🏘️</div><div class="empty-title">'${data.neighborhood}'에서 아파트를 찾지 못했어요</div><div class="empty-sub">동네명을 더 구체적으로 입력해 보세요. (예: 울산 남구 야음동)</div></div>`;
+    return;
   }
+  const chips = (data.complexes || []).map(c => `<span class="chip">${c.name} · ${c.dist} km</span>`).join(" ");
+  const top3 = (data.top3 || []).map((a, i) => {
+    const idx = APTS.indexOf(a);
+    return `<div class="rec-card" data-i="${idx}" style="--c:${GRADE_COLOR[a.grade] || '#888'}">
+      <div class="rec-rank">${i + 1}위</div>
+      <div class="rec-grade">${a.grade}</div>
+      <div class="rec-name">${a.name}</div>
+      <div class="rec-meta">종합 ${a.composite}점 · 소음 ${a.noiseDb}dB · 악취 ${a.odorOu}OU</div>
+      <div class="rec-go">상세 보기 →</div></div>`;
+  }).join("");
+  const rows = APTS.map((a, i) => `<tr data-i="${i}">
+      <td style="text-align:center">${GBADGE(a.grade)}</td>
+      <td><b>${a.name}</b><div class="muted small">${a.addr || ""}</div></td>
+      <td style="text-align:right"><b>${a.composite}</b></td>
+      <td style="text-align:right">${a.noiseDb} dB</td>
+      <td style="text-align:right">${a.odorOu} OU</td>
+      <td style="text-align:center">${a.coreCount} / ${a.nearbyCount}</td></tr>`).join("");
+  result.innerHTML = `
+    <div class="nb-head"><h2>📍 ${data.neighborhood}</h2><span class="muted">아파트 ${data.count}곳 분석 완료</span></div>
+    ${chips ? `<div class="complexes"><b>자동 탐지된 산업단지</b> &nbsp;${chips}</div>` : ""}
+    <h3 class="rec-title">⭐ 추천 안심 명당 TOP 3</h3>
+    <div class="rec-grid">${top3}</div>
+    <h3 class="rec-title">전체 아파트 등급 <span class="muted small">· 종합점수 높은 순</span></h3>
+    <div class="table-wrap" style="max-height:440px"><table class="apt-table"><thead><tr><th style="text-align:center">등급</th><th>아파트</th><th style="text-align:right">종합</th><th style="text-align:right">소음</th><th style="text-align:right">악취</th><th style="text-align:center">핵심/전체</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="muted small" style="margin-top:8px">카드나 표의 행을 클릭하면 해당 아파트의 상세 분석과 <b>AI 요약</b>을 볼 수 있어요.</p>`;
+  result.querySelectorAll(".rec-card").forEach(el => el.addEventListener("click", () => openDetail(APTS[+el.dataset.i])));
+  result.querySelectorAll(".apt-table tbody tr").forEach(el => el.addEventListener("click", () => openDetail(APTS[+el.dataset.i])));
+}
+
+async function openDetail(apt) {
+  if (!apt) return;
+  const detail = document.getElementById("detail");
+  detail.innerHTML = `<div class="card" style="text-align:center;padding:34px"><span class="spin"></span> ${apt.name} 상세 분석 중…</div>`;
+  detail.scrollIntoView({ behavior: "smooth", block: "start" });
+  const radius = +document.getElementById("radius").value;
+  const isDay = document.querySelector('input[name="period"]:checked').value === "day";
+  const wNoise = 1 - +document.getElementById("wnoise").value;
+  const live = document.getElementById("live").checked;
+  try {
+    const url = `/api/analyze?address=${encodeURIComponent(apt.name)}&lat=${apt.lat}&lon=${apt.lon}&radius=${radius}&day=${isDay}&wnoise=${wNoise}&fsrc=saved&live=${live}`;
+    const r = await fetch(url);
+    const rep = await r.json();
+    if (rep.error) { detail.innerHTML = `<div class="card">⚠️ ${rep.error}</div>`; return; }
+    renderResult(rep, "detail");
+    document.getElementById("detail").scrollIntoView({ behavior: "smooth", block: "start" });
+  } catch (e) { detail.innerHTML = `<div class="card">⚠️ ${e}</div>`; }
+}
+
+function backToList(e) {
+  if (e) e.preventDefault();
+  document.getElementById("detail").innerHTML = "";
+  document.getElementById("result").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 window.addEventListener("DOMContentLoaded", () => {
@@ -220,22 +235,13 @@ window.addEventListener("DOMContentLoaded", () => {
     document.getElementById("wnoise-val").textContent = (1 - e.target.value).toFixed(2);
     document.getElementById("wodor-val").textContent = (+e.target.value).toFixed(2);
   });
-  document.getElementById("complex_km").addEventListener("input", e => document.getElementById("ckm-val").textContent = e.target.value);
-  document.getElementById("max_rows").addEventListener("input", e => document.getElementById("mr-val").textContent = e.target.value);
-  document.getElementById("btn-analyze").addEventListener("click", analyze);
-  document.getElementById("btn-search").addEventListener("click", search);
+  document.getElementById("btn-search").addEventListener("click", searchNeighborhood);
   // 사이드바 접기/펼치기
   document.getElementById("sb-toggle").addEventListener("click", () => {
     document.body.classList.toggle("sb-collapsed");
   });
-  // 주소창에서 Enter → 검색
-  const addrEl = document.getElementById("addr");
-  addrEl.addEventListener("keydown", e => {
-    if (e.key === "Enter") { e.preventDefault(); search(); }
-    else if (e.key === "Escape") { hideSuggest(); }
-  });
-  // 바깥 클릭 시 후보 닫기
-  document.addEventListener("click", e => {
-    if (!e.target.closest(".search-box")) hideSuggest();
+  // 동네 입력창에서 Enter → 동네 검색
+  document.getElementById("addr").addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); searchNeighborhood(); }
   });
 });
