@@ -237,6 +237,28 @@ th { background: var(--section); position: sticky; top: 0; font-weight: 600; col
 .back-link:hover { text-decoration: underline; }
 #detail { margin-top: 22px; }
 
+/* 상세 로딩 애니메이션 — '분석 중'임을 보여줌 */
+.detail-loading { text-align: center; padding: 42px 24px; }
+.dl-orbit { width: 56px; height: 56px; margin: 0 auto 16px; position: relative; }
+.dl-orbit::before, .dl-orbit::after { content: ""; position: absolute; border-radius: 50%; border: 3px solid transparent; }
+.dl-orbit::before { inset: 0; border-top-color: var(--accent); animation: dl-spin .85s linear infinite; }
+.dl-orbit::after { inset: 9px; border-bottom-color: #4338ca; animation: dl-spin 1.4s linear infinite reverse; }
+@keyframes dl-spin { to { transform: rotate(360deg); } }
+.dl-title { font-weight: 800; color: var(--ink); font-size: 15px; }
+.dl-step { color: var(--muted); font-size: 13px; margin-top: 6px; min-height: 18px; }
+.dl-step::after { content: "…"; animation: dl-dots 1.2s steps(4) infinite; }
+@keyframes dl-dots { 0% { content: "" } 25% { content: "." } 50% { content: ".." } 75% { content: "…" } }
+.dl-bar { height: 4px; width: 210px; margin: 18px auto 0; background: var(--line); border-radius: 99px; overflow: hidden; }
+.dl-bar span { display: block; height: 100%; width: 38%; border-radius: 99px;
+  background: linear-gradient(90deg, var(--accent), #4338ca); animation: dl-slide 1.1s ease-in-out infinite; }
+@keyframes dl-slide { 0% { transform: translateX(-130%) } 100% { transform: translateX(400%) } }
+
+/* AI 요약 등장 + 타이핑 커서 */
+.ai-box { animation: ai-in .45s ease both; }
+@keyframes ai-in { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+.tw-cursor { color: #4338ca; font-weight: 700; animation: tw-blink .7s steps(1) infinite; }
+@keyframes tw-blink { 50% { opacity: 0 } }
+
 @media (max-width: 860px) {
   .rec-grid { grid-template-columns: 1fr; }
   .src-grid { grid-template-columns: 1fr; }

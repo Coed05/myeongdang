@@ -102,7 +102,8 @@ function renderResult(rep, targetId) {
       <p class="adv-p"><b>왜 시뮬레이션인가?</b> 공장의 실시간 배출량은 영업비밀이라 공개되지 않아요. 정부 공인 '배출 원단위 가중치'와 '물리적 소음 표준'을 공인 화공 수식에 대입해요.</p>
       <p class="adv-p"><b>3대 핵심 배출 업종</b> — 화학(C20) Q=100·85dB / 고무·플라스틱(C22) 60·80dB / 금속가공(C25) 15·95dB</p>
       <div class="fxhead"><b>악취 — 2차원 가우스 확산</b> <span class="muted small">· 수식에 마우스를 올리면 설명이 떠요</span></div>
-      <div class="fx" data-tip="${FX.odor}">$$C=\\dfrac{Q}{\\pi\\,u\\,\\sigma_y\\,\\sigma_z}\\,\\exp\\!\\left(-\\dfrac{y^2}{2\\sigma_y^2}\\right)\\exp\\!\\left(-\\dfrac{H^2}{2\\sigma_z^2}\\right),\\quad \\sigma_y=a\\,x^{b},\\ \\sigma_z=c\\,x^{d}$$</div>
+      <div class="fx" data-tip="${FX.odor}">$$C=\\dfrac{Q}{\\pi\\,u\\,\\sigma_y\\,\\sigma_z}\\,\\exp\\!\\left(-\\dfrac{y^2}{2\\sigma_y^2}\\right)\\exp\\!\\left(-\\dfrac{H^2}{2\\sigma_z^2}\\right),\\quad \\sigma_y=a\\,x^{b},\\ \\sigma_z=c\\,x^{d}+f$$</div>
+      <p class="adv-p muted small">악취는 그날의 풍향이 아니라 <b>8방위 바람장미 평균</b>(연중 노출)으로 계산하고, 상대농도를 OU 등급밴드에 맞춰 보정해요. σ는 Martin(1976) Table 3 계수(x&lt;1km·≥1km 구간별).</p>
       <div class="fxhead"><b>소음 — 거리 역자승 감쇄 + 로그 합산</b></div>
       <div class="fx" data-tip="${FX.noise}">$$SPL_2=SPL_1-20\\log_{10}(r_2),\\qquad SPL_{total}=10\\log_{10}\\!\\sum_i 10^{\\,SPL_i/10}$$</div>
       <p class="adv-p muted small">근거: 악취방지법, 산업안전보건기준 규칙 제512조, Pasquill(1961), Martin(1976).</p>
@@ -204,10 +205,51 @@ function renderNeighborhood(data) {
   result.querySelectorAll(".apt-table tbody tr").forEach(el => el.addEventListener("click", () => openDetail(APTS[+el.dataset.i])));
 }
 
+// 상세 로딩 애니메이션 — '분석 중' 단계를 순환 표시(렉인지 진행중인지 구분)
+let DL_TIMER = null;
+function startDetailLoading(detail, name) {
+  detail.innerHTML = `<div class="card detail-loading">
+    <div class="dl-orbit"></div>
+    <div class="dl-title">AI가 «${name}»을(를) 분석하고 있어요</div>
+    <div class="dl-step" id="dl-step">주변 공장을 모으는 중</div>
+    <div class="dl-bar"><span></span></div></div>`;
+  const steps = ["주변 공장을 모으는 중", "소음·악취 농도를 계산하는 중",
+                 "대기 확산·바람장미를 적용하는 중", "안심 등급을 산정하는 중",
+                 "AI 요약을 작성하는 중"];
+  let i = 0;
+  clearInterval(DL_TIMER);
+  DL_TIMER = setInterval(() => {
+    i = (i + 1) % steps.length;
+    const el = document.getElementById("dl-step");
+    if (el) el.textContent = steps[i];
+  }, 720);
+}
+function stopDetailLoading() { clearInterval(DL_TIMER); DL_TIMER = null; }
+
+// AI 요약 타이핑 효과(글자가 차례로 찍혀 'AI가 작성 중'임을 보여줌)
+function typewriter(el, text, speed) {
+  if (!el) return;
+  el.textContent = "";
+  const caret = document.createElement("span");
+  caret.className = "tw-cursor"; caret.textContent = "▍";
+  el.appendChild(caret);
+  let i = 0;
+  (function step() {
+    if (i < text.length) {
+      const ch = text[i++];
+      caret.insertAdjacentText("beforebegin", ch);
+      const d = /[.!?。…]/.test(ch) ? 170 : /[,·]/.test(ch) ? 80 : speed;
+      setTimeout(step, d);
+    } else {
+      setTimeout(() => caret.remove(), 600);
+    }
+  })();
+}
+
 async function openDetail(apt) {
   if (!apt) return;
   const detail = document.getElementById("detail");
-  detail.innerHTML = `<div class="card" style="text-align:center;padding:34px"><span class="spin"></span> ${apt.name} 상세 분석 중…</div>`;
+  startDetailLoading(detail, apt.name);
   detail.scrollIntoView({ behavior: "smooth", block: "start" });
   const radius = +document.getElementById("radius").value;
   const isDay = document.querySelector('input[name="period"]:checked').value === "day";
@@ -217,10 +259,17 @@ async function openDetail(apt) {
     const url = `/api/analyze?address=${encodeURIComponent(apt.name)}&lat=${apt.lat}&lon=${apt.lon}&radius=${radius}&day=${isDay}&wnoise=${wNoise}&fsrc=saved&live=${live}`;
     const r = await fetch(url);
     const rep = await r.json();
+    stopDetailLoading();
     if (rep.error) { detail.innerHTML = `<div class="card">⚠️ ${rep.error}</div>`; return; }
     renderResult(rep, "detail");
-    document.getElementById("detail").scrollIntoView({ behavior: "smooth", block: "start" });
-  } catch (e) { detail.innerHTML = `<div class="card">⚠️ ${e}</div>`; }
+    detail.scrollIntoView({ behavior: "smooth", block: "start" });
+    // AI 요약을 타이핑 애니메이션으로 다시 출력
+    const body = detail.querySelector(".ai-body");
+    if (body && body.textContent.trim()) typewriter(body, body.textContent.trim(), 13);
+  } catch (e) {
+    stopDetailLoading();
+    detail.innerHTML = `<div class="card">⚠️ ${e}</div>`;
+  }
 }
 
 function backToList(e) {

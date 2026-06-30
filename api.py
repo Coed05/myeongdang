@@ -21,7 +21,7 @@ from weather import get_wind_by_latlon
 from pipeline import run_assessment
 from config import WIND_SPEED_DAY, WIND_SPEED_NIGHT
 from config import (core_of, get_industry_weight, INDUSTRY_WEIGHTS,
-                    DEFAULT_STACK_HEIGHT_M)
+                    DEFAULT_STACK_HEIGHT_M, ODOR_CALIBRATION, ODOR_WIND_DIRS)
 from geo import decompose_wind
 from dispersion import sigma_y_z
 from formulas import gaussian_concentration, noise_attenuation_db
@@ -233,16 +233,23 @@ def _detail(rep):
             emp = 0
         ratio = (emp / max_emp) if (max_emp > 0 and emp > 0) else 1.0
         Q = wgt["odor_q"] * ratio
-        x_m, y_m = decompose_wind(f["lat"], f["lon"], apt_lat, apt_lon, wfrom)
-        x_km = x_m / 1000.0
+        # 대표 거리(직선)에서의 σ — 표시용
+        x_km = f["distance_km"]
         sy, sz = sigma_y_z(max(x_km, 1e-3), stab)
-        C = gaussian_concentration(Q, u, x_km, y_m, stab, H)
+        # C: 헤드라인과 동일한 8방위 바람장미 평균 × 보정상수(이 공장의 기여 OU)
+        ndir = ODOR_WIND_DIRS
+        acc = 0.0
+        for k in range(ndir):
+            wd = 360.0 * k / ndir
+            xm2, ym2 = decompose_wind(f["lat"], f["lon"], apt_lat, apt_lon, wd)
+            acc += gaussian_concentration(Q, u, xm2 / 1000.0, ym2, stab, H)
+        C = (acc / ndir) * ODOR_CALIBRATION
         spl2 = noise_attenuation_db(wgt["noise_db"], f["distance_km"] * 1000.0)
         core = core_of(f.get("ksic_code"), f.get("industry_name"))
         rows.append({"name": f["factory_name"], "label": INDUSTRY_WEIGHTS[core]["label"],
                      "r2": round(f["distance_km"], 3), "x": round(x_km, 3),
-                     "y": round(y_m), "sy": round(sy, 1), "sz": round(sz, 1),
-                     "Q": round(Q, 1), "C": round(C, 5), "spl2": round(spl2, 1)})
+                     "y": 0, "sy": round(sy, 1), "sz": round(sz, 1),
+                     "Q": round(Q, 1), "C": round(C, 4), "spl2": round(spl2, 1)})
     return rows
 
 
